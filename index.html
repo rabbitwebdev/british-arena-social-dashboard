@@ -568,7 +568,7 @@
   </div>
   <div id="gainToast" class="gain-toast">+1 New follower in the arena!</div>
 
-  <button class="settings" onclick="toggleSettings()" aria-label="Settings">⚙</button>
+  <button type="button" class="settings" onclick="toggleSettings()" aria-label="Settings">⚙</button>
   <aside class="controls" id="panel" aria-label="Dashboard visual editor">
     <div class="editor-top"><div><div class="editor-eyebrow">BRITISH ARENA</div><h2>Visual dashboard editor</h2></div><button type="button" class="editor-close" onclick="toggleSettings()" aria-label="Close editor">✕</button></div>
     <div class="editor-layout"><div class="editor-sidebar">
@@ -1250,6 +1250,9 @@ window.arenaCloudReady=(async()=>{
         const status=document.getElementById('editorSaveNote');if(status)status.textContent='Draft saved. Press Publish to update the Arena TV.';return true;
       }catch(e){alert('Cloud save failed. Your browser still has a local copy. '+e.message);return false}
     };
+
+    // Cloud v13.3: expose editor controls to their HTML event handlers.
+    Object.assign(window,{addCustomSlide,clearLogo,cloneEventPlaylist,createEventPlaylist,createTeamAccount,deleteEventPlaylist,exportSlideBackup,importSlideBackup,previewEvent,previewFootball,previewMilestone,previewNewsletter,previewNewsletterSignup,publishScreens,saveSettings,selectEditorTab,selectEventPlaylist,setEditorPreviewSlide,setEventModeEnabled,showPublishingInfo,startEvent,stopEvent,toggleSettings,undoScreens,uploadLogo});
     if(location.pathname.startsWith('/display')){
       document.querySelector('.settings')?.remove();
       setInterval(async()=>{
