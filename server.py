@@ -174,16 +174,31 @@ class Handler(SimpleHTTPRequestHandler):
         if length<1 or length>limit:return None
         return self.rfile.read(length)
     def same_origin(self):
-        # Behind Railway's reverse proxy, the backend Host may be an internal
-        # address. Compare against an explicitly configured public origin.
-        origin=self.headers.get('Origin')
-        if not origin:return True
-        trusted_origin=os.environ.get('PUBLIC_ORIGIN','').rstrip('/')
-        if trusted_origin:
-            return hmac.compare_digest(origin,trusted_origin)
-        # Local-only fallback; configure PUBLIC_ORIGIN in hosted deployments.
-        host=self.headers.get('Host','')
-        return origin in ('https://'+host,'http://'+host)
+        # Modern browsers supply Fetch Metadata headers for form submissions.
+        # A same-origin navigation is safe even when Railway terminates TLS at
+        # its proxy and forwards a different Host/scheme to this process.
+        fetch_site=self.headers.get('Sec-Fetch-Site','').strip().lower()
+        if fetch_site in ('cross-site','same-site'):
+            return False
+        if fetch_site=='same-origin':
+            return True
+        origin=self.headers.get('Origin','').strip().rstrip('/')
+        trusted=os.environ.get('PUBLIC_ORIGIN','').strip().rstrip('/')
+        if origin:
+            if trusted and hmac.compare_digest(origin,trusted):return True
+            # Railway also supplies the public hostname via X-Forwarded-Host.
+            host=self.headers.get('X-Forwarded-Host') or self.headers.get('Host','')
+            return origin in ('https://'+host,'http://'+host)
+        # HTML forms may omit Origin in some browsers. Allow a same-origin
+        # Referer, but never allow a cross-site one.
+        referer=self.headers.get('Referer','')
+        if referer:
+            parsed=urllib.parse.urlsplit(referer)
+            ref_origin=parsed.scheme+'://'+parsed.netloc
+            if trusted and hmac.compare_digest(ref_origin,trusted):return True
+            host=self.headers.get('X-Forwarded-Host') or self.headers.get('Host','')
+            return ref_origin in ('https://'+host,'http://'+host)
+        return False
     def do_PUT(self):
         if self.path.split('?')[0]!='/api/config':return self.send_error(404)
         if not self.can_edit() or not self.same_origin():return self.json_response(403,{'error':'forbidden'})
