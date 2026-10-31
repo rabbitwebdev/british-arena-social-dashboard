@@ -670,13 +670,13 @@
     <label>Screen rotation, seconds<input id="rotation" type="number" min="5"></label>
     <label>Mode<select id="mode"><option value="both">Alternate Instagram and Facebook</option><option value="instagram">Instagram only</option><option value="facebook">Facebook only</option></select></label>
     </div>
-    <div class="editor-bottom"><button type="button" onclick="saveSettings()">Save settings</button><span id="editorSaveNote" aria-live="polite">Changes preview live before saving.</span></div>
+    <div class="editor-bottom"><button type="button" onclick="saveSettings()">Save draft</button><button type="button" id="publishScreenButton" onclick="publishScreens()" style="background:#29cc8a;color:#081e40;margin-top:8px">PUBLISH TO SCREENS</button><button type="button" id="undoPublishButton" onclick="undoScreens()" style="margin-top:8px">Undo last publish</button><button type="button" onclick="showPublishingInfo()" style="margin-top:8px">Publishing history / Team</button><span id="editorSaveNote" aria-live="polite">Changes preview live before saving.</span></div>
     </div><div class="editor-preview">
       <div class="preview-header"><div><strong>LIVE PREVIEW</strong><p>See edits before saving</p></div><select id="editorPreviewSlide" aria-label="Preview screen" onchange="setEditorPreviewSlide(this.value)"><option value="count-instagram">Instagram followers</option><option value="count-facebook">Facebook followers</option><option value="cta-instagram">Instagram signup</option><option value="cta-facebook">Facebook signup</option><option value="newsletter">Newsletter signup</option></select></div>
       <div class="preview-stage"><iframe id="editorPreviewFrame" title="Live dashboard preview" src="/admin?editor-preview=1"></iframe></div>
       <div class="preview-help">Live preview is isolated from the presentation screen. Use the animation preview controls to view full-screen effects.</div>
     </div></div>
-    <div class="editor-hidden-actions">
+    <div id="teamAccounts" hidden style="border:1px solid #6d86b6;padding:16px;margin:15px;background:#142a60"><h3>Team accounts (Admin only)</h3><label>Username<input id="newStaffName" placeholder="marketing.team"></label><label>Password (minimum 12 characters)<input id="newStaffPassword" type="password" autocomplete="new-password"></label><label>Role<select id="newStaffRole"><option value="marketing">Marketing</option><option value="viewer">Viewer</option></select></label><button type="button" onclick="createTeamAccount()">Create staff account</button></div><div class="editor-hidden-actions">
     <button onclick="saveSettings()">Save settings (classic)</button>
     <button onclick="startEvent()">Start event tracking</button>
     <button onclick="stopEvent()">Clear event tracking</button>
@@ -1198,6 +1198,45 @@ window.arenaCloudReady=(async()=>{
     setInterval(poll,15000);
     if(!document.body.classList.contains('editor-preview-only')) startRotation();
     if(!document.body.classList.contains('editor-preview-only')){pollNewsletterEvents();setInterval(pollNewsletterEvents,3000)}
+
+    async function publishingRequest(path,payload){
+      const r=await fetch(path,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload||{})});
+      const data=await r.json();if(!r.ok)throw Error(data.error||'Request failed');return data;
+    }
+    async function publishScreens(){
+      try{const saved=await window.arenaCloudSync();if(!saved)throw Error('Draft save failed');const r=await publishingRequest('/api/publish');alert('Published to screens. Version '+r.version+' will sync within 5 seconds.');}
+      catch(e){alert('Could not publish: '+e.message)}
+    }
+    async function undoScreens(){
+      if(!confirm('Restore the previously published screen configuration?'))return;
+      try{await publishingRequest('/api/undo');alert('Previous published configuration restored on screens.');}
+      catch(e){alert('Undo failed: '+e.message)}
+    }
+    async function showPublishingInfo(){
+      try{
+        const [me,history]=await Promise.all([fetch('/api/me').then(r=>r.json()),fetch('/api/publications').then(r=>r.json())]);
+        const user=me.user||{};
+        let message='Signed in: '+(user.username||'unknown')+' ('+(user.role||'unknown')+')\n\nLast publications:\n';
+        message+=(history.history||[]).slice(0,10).map(x=>new Date(x.time*1000).toLocaleString()+' | '+x.by+' | version '+x.version).join('\n')||'No publications yet';
+        if(user.role==='admin'){
+          message+='\n\nTo create a marketing user, use the Team Accounts form.';
+          document.getElementById('teamAccounts')?.removeAttribute('hidden');
+        }
+        alert(message);
+      }catch(e){alert(e.message)}
+    }
+    async function createTeamAccount(){
+      const username=document.getElementById('newStaffName').value.trim();
+      const password=document.getElementById('newStaffPassword').value;
+      const role=document.getElementById('newStaffRole').value;
+      try{await publishingRequest('/api/staff',{username,password,role});alert('Account created: '+username);document.getElementById('newStaffPassword').value='';}
+      catch(e){alert('Could not create account: '+e.message)}
+    }
+    if(location.pathname.startsWith('/admin'))fetch('/api/me').then(r=>r.json()).then(data=>{
+      if(data.user?.role==='viewer'){
+        for(const id of ['publishScreenButton','undoPublishButton']){const b=document.getElementById(id);if(b)b.disabled=true;}
+      }
+    });
     window.arenaCloudSync=async function(){
       if(!location.pathname.startsWith('/admin'))return;
       const settings={};
@@ -1208,8 +1247,8 @@ window.arenaCloudReady=(async()=>{
         const result=await fetch('/api/config',{method:'PUT',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({settings})});
         if(!result.ok)throw Error('Save failed: '+result.status);
         const data=await result.json();window.arenaCloudVersion=data.version;
-        const status=document.getElementById('editorSaveNote');if(status)status.textContent='Saved to cloud. The Arena TV will update automatically.';
-      }catch(e){alert('Cloud save failed. Your browser still has a local copy. '+e.message)}
+        const status=document.getElementById('editorSaveNote');if(status)status.textContent='Draft saved. Press Publish to update the Arena TV.';return true;
+      }catch(e){alert('Cloud save failed. Your browser still has a local copy. '+e.message);return false}
     };
     if(location.pathname.startsWith('/display')){
       document.querySelector('.settings')?.remove();
@@ -1221,7 +1260,7 @@ window.arenaCloudReady=(async()=>{
             Object.entries(state.settings||{}).forEach(([k,v])=>localStorage.setItem(k,v));location.reload();
           }
         }catch(e){}
-      },10000);
+      },5000);
     }
   });
   </script>

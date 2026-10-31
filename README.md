@@ -38,3 +38,15 @@ For the Pi, use Chromium in kiosk mode pointed at the **HTTPS public display URL
 - **Live Instagram/Facebook counts require Meta API credentials**. Newsletter events require a webhook. Demo mode is simulated.
 - The player URL contains a display token. Never share it openly. Rotate it if leaked.
 - SQLite handles persistent configuration only; in-memory newsletter notifications are not durable across restarts.
+
+
+## v13 Publishing and staff
+
+- Admin login: username `admin` and the existing `ADMIN_PASSWORD`.
+- Create marketing and viewer users under Settings > Publishing history / Team. Passwords must be 12+ characters.
+- Save draft does not update the TV. Press **PUBLISH TO SCREENS** to update the published state.
+- The player reads `/api/player/sync?token=<DISPLAY_KEY>` and updates every 5 seconds.
+- Undo restores the previous published revision. History is stored in SQLite on the persistent `/data` volume.
+- Marketing can save drafts and publish; viewers can preview. Admin can create accounts.
+- Protect DISPLAY_KEY: it is a bearer token in the Pi player URL. Use HTTPS and don't share the URL publicly.
+- The Pi offline caching service is NOT included in this cloud release; it is a separate player component.

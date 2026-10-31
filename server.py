@@ -21,6 +21,10 @@ def db_init():
     with sqlite3.connect(DB_PATH) as db:
         db.execute('CREATE TABLE IF NOT EXISTS config (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL, version INTEGER NOT NULL)')
         db.execute("INSERT OR IGNORE INTO config(id,data,version) VALUES(1,'{}',0)")
+        db.execute('CREATE TABLE IF NOT EXISTS staff (username TEXT PRIMARY KEY, password_hash TEXT NOT NULL, role TEXT NOT NULL, created_at INTEGER NOT NULL)')
+        db.execute('CREATE TABLE IF NOT EXISTS publications (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL, version INTEGER NOT NULL, published_at INTEGER NOT NULL, published_by TEXT NOT NULL)')
+        db.execute('CREATE TABLE IF NOT EXISTS published (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL, version INTEGER NOT NULL)')
+        db.execute("INSERT OR IGNORE INTO published(id,data,version) VALUES(1,'{}',0)")
 
 def db_get():
     with DB_LOCK, sqlite3.connect(DB_PATH) as db:
@@ -33,15 +37,47 @@ def db_update(settings):
         db.execute('UPDATE config SET data=?,version=? WHERE id=1',(json.dumps(settings),version))
     return version
 
-def sign_session(expiry):
-    msg=str(expiry).encode(); signature=hmac.new(SESSION_SECRET.encode(),msg,hashlib.sha256).hexdigest()
-    return str(expiry)+'.'+signature
+def hash_password(password,salt=None):
+    salt=salt or secrets.token_hex(16)
+    key=hashlib.pbkdf2_hmac('sha256',password.encode(),bytes.fromhex(salt),260000)
+    return salt+':'+key.hex()
 
-def is_session(value):
+def check_password(password,stored):
     try:
-        expiry,signature=value.split('.',1)
-        return int(expiry)>time.time() and hmac.compare_digest(sign_session(int(expiry)),value)
-    except (ValueError,AttributeError):return False
+        salt,expected=stored.split(':',1)
+        return hmac.compare_digest(hash_password(password,salt),stored)
+    except (ValueError,TypeError):return False
+
+def session_sign(payload):
+    raw=base64.urlsafe_b64encode(json.dumps(payload,separators=(',',':')).encode()).decode().rstrip('=')
+    return raw+'.'+hmac.new(SESSION_SECRET.encode(),raw.encode(),hashlib.sha256).hexdigest()
+
+def session_read(token):
+    try:
+        raw,sig=token.split('.',1)
+        expected=hmac.new(SESSION_SECRET.encode(),raw.encode(),hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig,expected):return None
+        p=json.loads(base64.urlsafe_b64decode(raw+'='*(-len(raw)%4)))
+        if int(p.get('exp',0))<=time.time():return None
+        return p
+    except (ValueError,AttributeError,TypeError):return None
+
+def published_get():
+    with DB_LOCK,sqlite3.connect(DB_PATH) as db:
+        data,version=db.execute('SELECT data,version FROM published WHERE id=1').fetchone()
+    return {'settings':json.loads(data),'version':version}
+
+def publish(username,undo=False):
+    with DB_LOCK,sqlite3.connect(DB_PATH) as db:
+        if undo:
+            rows=db.execute('SELECT data FROM publications ORDER BY id DESC LIMIT 2').fetchall()
+            if len(rows)<2:return None
+            data=rows[1][0]
+        else:data=db.execute('SELECT data FROM config WHERE id=1').fetchone()[0]
+        version=db.execute('SELECT version FROM published WHERE id=1').fetchone()[0]+1
+        db.execute('UPDATE published SET data=?,version=? WHERE id=1',(data,version))
+        db.execute('INSERT INTO publications(data,version,published_at,published_by) VALUES(?,?,?,?)',(data,version,int(time.time()),username))
+        return version
 
 NEWSLETTER_EVENTS=deque(maxlen=100)
 NEWSLETTER_IDS=deque(maxlen=500)
@@ -113,11 +149,21 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header('Content-Length',str(len(encoded)))
         for key,value in (headers or {}).items():self.send_header(key,value)
         self.end_headers();self.wfile.write(encoded)
-    def admin_ok(self):
+    def current_user(self):
         try:
             cookie=SimpleCookie();cookie.load(self.headers.get('Cookie',''))
-            return 'arena_session' in cookie and is_session(cookie['arena_session'].value)
-        except Exception:return False
+            token=cookie['arena_session'].value
+            user=session_read(token)
+            if user and user.get('role') in ('admin','marketing','viewer'):
+                if user.get('username')=='admin':return user
+                with DB_LOCK,sqlite3.connect(DB_PATH) as db:
+                    row=db.execute('SELECT role FROM staff WHERE username=?',(user['username'],)).fetchone()
+                if row and row[0]==user['role']:return user
+        except Exception:pass
+        return None
+    def admin_ok(self):return self.current_user() is not None
+    def can_edit(self):return bool(self.current_user() and self.current_user()['role'] in ('admin','marketing'))
+    def is_admin(self):return bool(self.current_user() and self.current_user()['role']=='admin')
     def display_ok(self):
         query=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
         token=query.get('token',[''])[0]
@@ -134,7 +180,7 @@ class Handler(SimpleHTTPRequestHandler):
         return origin in ('https://'+host,'http://'+host)
     def do_PUT(self):
         if self.path.split('?')[0]!='/api/config':return self.send_error(404)
-        if not self.admin_ok() or not self.same_origin():return self.json_response(403,{'error':'forbidden'})
+        if not self.can_edit() or not self.same_origin():return self.json_response(403,{'error':'forbidden'})
         body=self.post_body(3_000_000)
         if body is None:return self.json_response(413,{'error':'payload too large'})
         try:
@@ -151,11 +197,35 @@ class Handler(SimpleHTTPRequestHandler):
             body=self.post_body(4096)
             if body is None:return self.send_error(413)
             fields=urllib.parse.parse_qs(body.decode('utf-8','replace'))
-            if not hmac.compare_digest(fields.get('password',[''])[0],ADMIN_PASSWORD):
-                return self.no_cache_html('<h1>Incorrect password</h1><p><a href="/login">Try again</a></p>',401)
-            token=sign_session(int(time.time()+12*3600))
+            username=fields.get('username',['admin'])[0].strip().lower()
+            password=fields.get('password',[''])[0]
+            role=None
+            if username=='admin' and hmac.compare_digest(password,ADMIN_PASSWORD):role='admin'
+            elif username!='admin':
+                with DB_LOCK,sqlite3.connect(DB_PATH) as db:
+                    row=db.execute('SELECT password_hash,role FROM staff WHERE username=?',(username,)).fetchone()
+                if row and check_password(password,row[0]):role=row[1]
+            if role is None:return self.no_cache_html('<h1>Incorrect credentials</h1><p><a href="/login">Try again</a></p>',401)
+            token=session_sign({'username':username,'role':role,'exp':int(time.time()+12*3600)})
             cookie='arena_session='+token+'; Path=/; HttpOnly; SameSite=Lax'+('; Secure' if self.headers.get('X-Forwarded-Proto')=='https' else '')
             self.send_response(303);self.send_header('Set-Cookie',cookie);self.send_header('Location','/admin');self.end_headers();return
+        if path in ('/api/publish','/api/undo','/api/staff'):
+            if not self.same_origin():return self.json_response(403,{'error':'forbidden'})
+            if path=='/api/staff':
+                if not self.is_admin():return self.json_response(403,{'error':'admin only'})
+                body=self.post_body(8192)
+                try:
+                    payload=json.loads(body or b'{}'); username=payload['username'].strip().lower();password=payload['password'];role=payload['role']
+                    if not (3<=len(username)<=48 and all(c.isalnum() or c in '._-' for c in username) and username!='admin' and len(password)>=12 and role in ('marketing','viewer')):raise ValueError()
+                    with DB_LOCK,sqlite3.connect(DB_PATH) as db:
+                        db.execute('INSERT INTO staff(username,password_hash,role,created_at) VALUES(?,?,?,?)',(username,hash_password(password),role,int(time.time())))
+                    return self.json_response(201,{'ok':True,'username':username,'role':role})
+                except sqlite3.IntegrityError:return self.json_response(409,{'error':'username exists'})
+                except (ValueError,TypeError,KeyError):return self.json_response(400,{'error':'invalid user'})
+            if not self.can_edit():return self.json_response(403,{'error':'edit permission required'})
+            version=publish(self.current_user()['username'],undo=path=='/api/undo')
+            if version is None:return self.json_response(409,{'error':'no earlier publication to restore'})
+            return self.json_response(200,{'ok':True,'version':version})
         if path=='/logout':
             self.send_response(303);self.send_header('Set-Cookie','arena_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax');self.send_header('Location','/login');self.end_headers();return
 
@@ -186,7 +256,7 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         path=self.path.split('?')[0]
         if path=='/login':
-            return self.no_cache_html("""<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Arena Admin</title><style>body{font:16px Arial;background:#0B1F55;color:white;display:grid;place-items:center;min-height:90vh}form{border:1px solid #789;padding:30px;min-width:280px}input,button{display:block;padding:14px;width:100%;box-sizing:border-box;margin-top:16px;border-radius:0}button{background:#fff;color:#0B1F55;font-weight:bold}</style><form action="/login" method="post"><h1>British Arena</h1><p>Cloud dashboard sign in</p><label>Admin password<input name="password" type="password" required autofocus></label><button>Sign in</button></form></html>""")
+            return self.no_cache_html("""<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Arena Admin</title><style>body{font:16px Arial;background:#0B1F55;color:white;display:grid;place-items:center;min-height:90vh}form{border:1px solid #789;padding:30px;min-width:280px}input,button{display:block;padding:14px;width:100%;box-sizing:border-box;margin-top:16px;border-radius:0}button{background:#fff;color:#0B1F55;font-weight:bold}</style><form action="/login" method="post"><h1>British Arena</h1><p>Cloud dashboard sign in</p><label>Username<input name="username" value="admin" required></label><label>Password<input name="password" type="password" required autofocus></label><button>Sign in</button></form></html>""")
         if path=='/':
             self.send_response(302);self.send_header('Location','/login');self.end_headers();return
         if path=='/admin':
@@ -196,9 +266,22 @@ class Handler(SimpleHTTPRequestHandler):
         if path=='/display':
             if not self.display_ok():return self.send_error(403)
             return self.no_cache_html((ROOT/'index.html').read_text())
-        if path=='/api/config':
-            if not (self.admin_ok() or self.display_ok()):return self.json_response(403,{'error':'forbidden'})
-            return self.json_response(200,db_get())
+        if path in ('/api/config','/api/player/sync'):
+            if self.admin_ok() and path=='/api/config':return self.json_response(200,db_get())
+            if not self.display_ok():return self.json_response(403,{'error':'forbidden'})
+            return self.json_response(200,published_get())
+        if path=='/api/me':
+            return self.json_response(200,{'user':self.current_user()})
+        if path=='/api/publications':
+            if not self.admin_ok():return self.json_response(403,{'error':'forbidden'})
+            with DB_LOCK,sqlite3.connect(DB_PATH) as db:
+                rows=db.execute('SELECT id,version,published_at,published_by FROM publications ORDER BY id DESC LIMIT 30').fetchall()
+            return self.json_response(200,{'history':[{'id':r[0],'version':r[1],'time':r[2],'by':r[3]} for r in rows]})
+        if path=='/api/staff':
+            if not self.is_admin():return self.json_response(403,{'error':'admin only'})
+            with DB_LOCK,sqlite3.connect(DB_PATH) as db:
+                rows=db.execute('SELECT username,role,created_at FROM staff ORDER BY username').fetchall()
+            return self.json_response(200,{'staff':[{'username':r[0],'role':r[1],'created':r[2]} for r in rows]})
         if path=='/api/counts':
             with LOCK: payload=dict(CACHE)
             return self.json_response(200,payload)
