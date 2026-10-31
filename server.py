@@ -174,8 +174,14 @@ class Handler(SimpleHTTPRequestHandler):
         if length<1 or length>limit:return None
         return self.rfile.read(length)
     def same_origin(self):
+        # Behind Railway's reverse proxy, the backend Host may be an internal
+        # address. Compare against an explicitly configured public origin.
         origin=self.headers.get('Origin')
         if not origin:return True
+        trusted_origin=os.environ.get('PUBLIC_ORIGIN','').rstrip('/')
+        if trusted_origin:
+            return hmac.compare_digest(origin,trusted_origin)
+        # Local-only fallback; configure PUBLIC_ORIGIN in hosted deployments.
         host=self.headers.get('Host','')
         return origin in ('https://'+host,'http://'+host)
     def do_PUT(self):
