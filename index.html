@@ -1,0 +1,1229 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>British Arena Social Wall</title>
+  <style>
+    :root{
+      --arena-bg:#07111f;
+      --arena-bg-2:#0b1730;
+      --arena-panel:#0d1d35cc;
+      --arena-panel-solid:#102240;
+      --arena-blue:#2f6bff;
+      --arena-blue-soft:#62a3ff;
+      --arena-red:#ef233c;
+      --arena-red-soft:#ff6677;
+      --arena-white:#f4f8ff;
+      --arena-muted:#aebed9;
+      --arena-border:#ffffff26;
+      --arena-shadow:0 24px 60px rgba(0,0,0,.35);
+      font-family: Inter, Arial, Helvetica, sans-serif;
+      color: var(--arena-white);
+      background: var(--arena-bg);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;overflow:hidden;background:
+      radial-gradient(circle at 15% 12%, rgba(47,107,255,.28), transparent 28%),
+      radial-gradient(circle at 86% 14%, rgba(239,35,60,.22), transparent 28%),
+      radial-gradient(circle at 50% 90%, rgba(98,163,255,.14), transparent 32%),
+      linear-gradient(135deg, #06101d 0%, #081528 45%, #050c17 100%);
+      position:relative;
+    }
+    body::before{
+      content:"";
+      position:fixed;inset:0;
+      background:repeating-linear-gradient(120deg, transparent 0 68px, rgba(255,255,255,.02) 68px 86px, transparent 86px 160px);
+      pointer-events:none;
+      opacity:.6;
+    }
+    body::after{
+      content:"";
+      position:fixed;left:-10%;right:-10%;bottom:-20vh;height:36vh;
+      background:radial-gradient(ellipse at center, rgba(255,255,255,.06) 0%, rgba(255,255,255,0) 68%);
+      pointer-events:none;
+    }
+    main{
+      min-height:100vh;
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      gap:2.4vh;
+      padding:3.5vh 4vw 3vh;
+      position:relative;
+      z-index:1;
+    }
+    header,footer{display:flex;align-items:center;justify-content:space-between;gap:24px}
+    .brand-wrap{display:flex;align-items:center;gap:18px}
+    .brand-mark{
+      width:18px;height:76px;border-radius:999px;
+      background:linear-gradient(180deg,var(--arena-blue),var(--arena-red));
+      box-shadow:0 0 25px rgba(47,107,255,.35);
+    }
+    .brand-stack{display:flex;flex-direction:column;gap:3px}
+    .brand{
+      font-size:clamp(28px,3vw,58px);
+      font-weight:1000;
+      letter-spacing:.12em;
+      line-height:.95;
+      text-transform:uppercase;
+    }
+    .brand .accent{color:var(--arena-blue-soft)}
+    .brand-sub{
+      font-size:clamp(12px,1vw,18px);
+      color:var(--arena-muted);
+      letter-spacing:.38em;
+      text-transform:uppercase;
+    }
+    .tag{
+      display:flex;align-items:center;gap:12px;
+      padding:12px 18px;
+      border:1px solid var(--arena-border);
+      border-radius:999px;
+      background:linear-gradient(135deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      box-shadow:var(--arena-shadow);
+      font-size:clamp(12px,1.2vw,20px);
+      letter-spacing:.24em;
+      font-weight:800;
+      text-transform:uppercase;
+    }
+    .tag-dot{width:10px;height:10px;border-radius:50%;background:#3ad66f;box-shadow:0 0 16px #3ad66f}
+
+    .hero{
+      min-height:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-direction:column;
+      gap:2.2vh;
+      position:relative;
+    }
+    .kicker{
+      display:inline-flex;align-items:center;gap:12px;
+      padding:10px 16px;
+      border-radius:999px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.12);
+      color:var(--arena-white);
+      font-size:clamp(14px,1.2vw,22px);
+      letter-spacing:.24em;
+      text-transform:uppercase;
+      font-weight:800;
+    }
+    .kicker::before{
+      content:"";
+      width:8px;height:8px;border-radius:50%;
+      background:linear-gradient(180deg,var(--arena-blue-soft),var(--arena-red-soft));
+      box-shadow:0 0 16px rgba(98,163,255,.55);
+    }
+    .count-card{
+      width:min(100%, 1120px);
+      border:1px solid rgba(255,255,255,.12);
+      background:linear-gradient(180deg, rgba(17,34,64,.88), rgba(8,20,39,.94));
+      border-radius:32px;
+      box-shadow:var(--arena-shadow);
+      padding:3.2vh 3vw;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:1.9vh;
+      position:relative;
+      overflow:hidden;
+      isolation:isolate;
+    }
+    .count-card::before{
+      content:"";
+      position:absolute;inset:-1px;
+      background:linear-gradient(120deg, rgba(47,107,255,.35), transparent 28%, transparent 72%, rgba(239,35,60,.3));
+      z-index:-2;
+    }
+    .count-card::after{
+      content:"";
+      position:absolute;inset:1px;border-radius:31px;
+      background:linear-gradient(180deg, rgba(6,17,31,.16), rgba(9,23,45,.72));
+      z-index:-1;
+    }
+    .count-card.bump{
+      animation:cardPulse .9s ease;
+      box-shadow:0 24px 70px rgba(47,107,255,.26), 0 0 0 1px rgba(255,255,255,.08);
+    }
+    @keyframes cardPulse{
+      0%{transform:scale(1)}
+      25%{transform:scale(1.02)}
+      55%{transform:scale(.996)}
+      100%{transform:scale(1)}
+    }
+    .eyebrow{
+      font-size:clamp(18px,1.8vw,34px);
+      letter-spacing:.34em;
+      color:var(--arena-muted);
+      font-weight:800;
+      text-transform:uppercase;
+      text-align:center;
+    }
+    .number-wrap{position:relative;display:grid;place-items:center;padding-inline:20px}
+    .number-ring{
+      position:absolute;
+      width:min(52vw,560px);height:min(52vw,560px);
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(98,163,255,.18) 0%, rgba(98,163,255,.06) 36%, rgba(98,163,255,0) 66%);
+      opacity:.85;
+      filter:blur(2px);
+      pointer-events:none;
+    }
+    .number-ring.pulse{animation:ringPulse 1.15s ease-out}
+    @keyframes ringPulse{
+      0%{transform:scale(.78);opacity:.9}
+      70%{transform:scale(1.08);opacity:.18}
+      100%{transform:scale(1.18);opacity:0}
+    }
+    .number{
+      font-size:clamp(110px,18vw,340px);
+      line-height:.92;
+      font-weight:1000;
+      font-variant-numeric:tabular-nums;
+      letter-spacing:-.04em;
+      text-shadow:0 0 22px rgba(98,163,255,.12);
+      position:relative;
+      text-align:center;
+    }
+    .number.bump{animation:numberBump .75s cubic-bezier(.2,.8,.2,1)}
+    @keyframes numberBump{
+      0%{transform:scale(1);color:var(--arena-white)}
+      18%{transform:scale(1.08);color:#fff}
+      45%{transform:scale(.98);color:var(--arena-blue-soft)}
+      100%{transform:scale(1);color:var(--arena-white)}
+    }
+    .headline{
+      font-size:clamp(38px,4.9vw,100px);
+      font-weight:1000;
+      line-height:1.03;
+      max-width:90vw;
+      text-transform:uppercase;
+      letter-spacing:.02em;
+      text-align:center;
+    }
+    .sub{
+      font-size:clamp(18px,2.1vw,38px);
+      color:var(--arena-white);
+      text-align:center;
+    }
+    .sub-muted{color:var(--arena-muted)}
+    .progress-wrap{width:min(100%, 940px);display:flex;flex-direction:column;gap:12px}
+    .progress-meta{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;color:var(--arena-muted);font-size:clamp(12px,1.1vw,18px);text-transform:uppercase;letter-spacing:.16em;font-weight:800}
+    .progress{
+      height:22px;
+      width:100%;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.08);
+      box-shadow:inset 0 0 0 1px rgba(0,0,0,.2);
+    }
+    .fill{
+      height:100%;
+      background:linear-gradient(90deg, var(--arena-blue) 0%, var(--arena-blue-soft) 44%, var(--arena-red-soft) 74%, var(--arena-red) 100%);
+      transition:width .9s ease;
+      box-shadow:0 0 18px rgba(98,163,255,.3);
+    }
+    .gain{
+      min-height:1.2em;
+      color:#ffffff;
+      font-weight:900;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      text-align:center;
+      font-size:clamp(16px,1.5vw,26px);
+    }
+    .gain.highlight{animation:gainFlash 1.2s ease}
+    @keyframes gainFlash{
+      0%{opacity:0;transform:translateY(8px)}
+      20%{opacity:1;transform:translateY(0)}
+      85%{opacity:1}
+      100%{opacity:1}
+    }
+    .cta{display:none}
+    .cta .count-card{padding-block:3.6vh}
+    .cta .headline{font-size:clamp(46px,6.2vw,128px)}
+    .cta-grid{display:grid;grid-template-columns:minmax(250px,340px) minmax(0,1fr);gap:clamp(24px,4vw,60px);align-items:center;width:min(100%,1100px)}
+    .qr-panel{
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+      padding:18px;
+      border-radius:28px;
+      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+      border:1px solid rgba(255,255,255,.14);
+    }
+    .qr{
+      width:min(26vw,300px);
+      height:min(26vw,300px);
+      background:white;
+      padding:14px;
+      border-radius:22px;
+      box-shadow:0 16px 45px rgba(0,0,0,.28);
+    }
+    .qr img{width:100%;height:100%;display:block}
+    .handle{font-size:clamp(16px,1.5vw,24px);font-weight:800;letter-spacing:.12em;text-transform:uppercase;text-align:center}
+    .cta-copy{display:flex;flex-direction:column;align-items:flex-start;gap:18px;text-align:left}
+    .cta-copy .sub{text-align:left}
+    footer{
+      padding:18px 22px;
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.08);
+      background:rgba(11,23,48,.66);
+      box-shadow:var(--arena-shadow);
+      font-size:clamp(12px,1.25vw,24px)
+    }
+    .footer-keyline{display:flex;align-items:center;gap:14px;letter-spacing:.2em;text-transform:uppercase;font-weight:900}
+    .footer-keyline::before{content:"";width:34px;height:4px;border-radius:999px;background:linear-gradient(90deg,var(--arena-blue),var(--arena-red))}
+    .muted{color:var(--arena-muted)}
+
+    .controls{position:fixed;right:15px;bottom:15px;background:#0d1d35f2;padding:14px;border:1px solid var(--arena-border);border-radius:18px;z-index:12;display:none;width:320px;max-height:90vh;overflow:auto;box-shadow:var(--arena-shadow)}
+    .controls h2{margin:0 0 12px;font-size:22px}
+    label{display:block;font-size:13px;margin:9px 0;color:var(--arena-white)}
+    input,select,button{padding:10px 12px;width:100%;border-radius:10px;border:1px solid #6f88b6;background:#0a1730;color:white}
+    button{cursor:pointer;background:linear-gradient(90deg,var(--arena-blue),var(--arena-red));border:0;font-weight:800;margin:6px 0;letter-spacing:.04em}
+    .settings{position:fixed;right:10px;top:10px;opacity:.38;background:transparent;border:0;color:white;width:auto;font-size:24px;cursor:pointer;z-index:13}
+    .settings:hover{opacity:1}
+    .warn{color:#ffd4da;font-size:13px;line-height:1.45}
+    .demo-banner{position:fixed;left:50%;top:14px;transform:translateX(-50%);padding:8px 16px;border:1px solid rgba(255,255,255,.15);border-radius:999px;background:rgba(10,22,48,.92);color:var(--arena-white);font-size:12px;font-weight:900;letter-spacing:.24em;z-index:10;display:none;text-transform:uppercase;box-shadow:var(--arena-shadow)}
+    .gain-toast{
+      position:fixed;top:88px;left:50%;transform:translate(-50%,-18px) scale(.92);
+      min-width:min(86vw,560px);
+      max-width:min(86vw,560px);
+      padding:18px 24px;
+      border-radius:22px;
+      background:linear-gradient(135deg, rgba(47,107,255,.96), rgba(239,35,60,.96));
+      color:white;
+      font-weight:1000;
+      font-size:clamp(24px,2.1vw,40px);
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      text-align:center;
+      box-shadow:0 24px 60px rgba(0,0,0,.4);
+      opacity:0;
+      pointer-events:none;
+      z-index:15;
+      border:1px solid rgba(255,255,255,.22);
+    }
+    .gain-toast.show{animation:toastInOut 3.15s ease forwards}
+    @keyframes toastInOut{
+      0%{opacity:0;transform:translate(-50%,-18px) scale(.92)}
+      12%{opacity:1;transform:translate(-50%,0) scale(1)}
+      82%{opacity:1;transform:translate(-50%,0) scale(1)}
+      100%{opacity:0;transform:translate(-50%,-10px) scale(.98)}
+    }
+    #sparkLayer{
+      position:absolute;inset:0;overflow:hidden;pointer-events:none;
+    }
+    .spark{
+      position:absolute;
+      left:50%;top:50%;
+      width:12px;height:12px;
+      margin-left:-6px;margin-top:-6px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(98,163,255,.92) 36%, rgba(98,163,255,0) 70%);
+      opacity:0;
+      animation:sparkFly .95s ease-out forwards;
+      box-shadow:0 0 16px rgba(98,163,255,.42);
+    }
+    @keyframes sparkFly{
+      0%{opacity:1;transform:translate(0,0) scale(.5)}
+      88%{opacity:1}
+      100%{opacity:0;transform:translate(calc(var(--dx)*1px), calc(var(--dy)*1px)) scale(1.22)}
+    }
+
+    @media (max-width:900px){
+      main{padding-inline:18px;padding-top:54px}
+      header,footer{flex-direction:column;align-items:flex-start}
+      .tag{align-self:flex-start}
+      .count-card{padding:28px 18px;border-radius:24px}
+      .cta-grid{grid-template-columns:1fr}
+      .cta-copy,.cta-copy .sub{align-items:center;text-align:center}
+      .qr{width:min(72vw,280px);height:min(72vw,280px)}
+      .progress-meta{justify-content:center}
+      .number{font-size:clamp(72px,22vw,180px)}
+      .gain-toast{top:112px}
+    }
+
+    /* Brand controls */
+    .brand-logo{display:none;max-height:78px;max-width:min(32vw,350px);width:auto;object-fit:contain;filter:drop-shadow(0 6px 22px #0007)}
+    .brand-wrap.has-logo .brand-mark,.brand-wrap.has-logo .brand-stack{display:none}
+    .brand-wrap.has-logo .brand-logo{display:block}
+    .brand-controls{border-top:1px solid var(--arena-border);padding-top:12px;margin-top:14px}
+    .swatch-input{width:100%;height:42px;padding:3px;cursor:pointer}
+    .settings-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .control-note{font-size:12px;color:var(--arena-muted);line-height:1.45}
+    .secondary-button{background:#172e52;border:1px solid rgba(255,255,255,.18)}
+    /* Footballs roll across the bottom whenever new followers are detected. */
+    .football-lane{position:fixed;inset:auto 0 0;height:145px;overflow:hidden;pointer-events:none;z-index:20}
+    .rolling-ball{position:absolute;left:0;bottom:14px;width:clamp(52px,6.5vw,92px);height:clamp(52px,6.5vw,92px);will-change:transform;animation:ballTravel var(--roll-duration,4.4s) linear forwards}
+    .rolling-ball .ball-shape{display:block;width:100%;height:100%;font-size:clamp(50px,6.3vw,90px);line-height:1;filter:drop-shadow(0 9px 7px #0009);animation:ballSpin var(--spin-duration,.7s) linear infinite;transform-origin:center}
+    .rolling-ball::after{content:"";position:absolute;left:12%;right:12%;bottom:-6px;height:8px;border-radius:50%;background:#0006;filter:blur(4px)}
+    @keyframes ballTravel{0%{transform:translateX(-120px) translateY(0)}20%{transform:translateX(calc(20vw - 100px)) translateY(-18px)}40%{transform:translateX(calc(40vw - 100px)) translateY(0)}60%{transform:translateX(calc(60vw - 100px)) translateY(-12px)}80%{transform:translateX(calc(80vw - 100px)) translateY(0)}100%{transform:translateX(calc(100vw + 120px)) translateY(0)}}
+    @keyframes ballSpin{to{transform:rotate(360deg)}}
+    @media(prefers-reduced-motion:reduce){.rolling-ball,.rolling-ball .ball-shape{animation-duration:.01ms!important}}
+    /* Milestone celebration */
+    .celebration{display:none;position:fixed;inset:0;z-index:25;overflow:hidden;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:4vw;background:radial-gradient(circle at center,rgba(47,107,255,.32),rgba(2,8,20,.97) 68%);isolation:isolate}
+    .celebration.active{display:flex;animation:celebrationEnter .65s ease-out}
+    @keyframes celebrationEnter{from{opacity:0}to{opacity:1}}
+    .celebration::before{content:"";position:absolute;inset:-80%;z-index:-1;background:conic-gradient(from 0deg, transparent 0deg 25deg,rgba(47,107,255,.12) 25deg 40deg,transparent 40deg 105deg,rgba(239,35,60,.14) 105deg 120deg,transparent 120deg 180deg,rgba(255,255,255,.08) 180deg 188deg,transparent 188deg 360deg);animation:arenaRays 16s linear infinite}
+    @keyframes arenaRays{to{transform:rotate(360deg)}}
+    .celebration-overline{font-size:clamp(18px,2.3vw,36px);letter-spacing:.36em;font-weight:900;text-transform:uppercase;color:var(--arena-blue-soft)}
+    .celebration-title{font-size:clamp(58px,10vw,190px);line-height:.92;text-transform:uppercase;font-weight:1000;letter-spacing:-.035em;margin:20px 0;text-shadow:0 16px 70px rgba(47,107,255,.42);animation:milestonePop 1s cubic-bezier(.12,.9,.18,1.15)}
+    @keyframes milestonePop{0%{transform:scale(.38) rotate(-4deg);opacity:0}65%{transform:scale(1.07);opacity:1}100%{transform:scale(1)}}
+    .celebration-count{font-size:clamp(50px,7vw,130px);line-height:1;font-weight:1000;font-variant-numeric:tabular-nums;color:#fff}
+    .celebration-sub{font-size:clamp(16px,2vw,34px);color:var(--arena-muted);max-width:900px;margin:20px 0}
+    .celebration-brand{font-weight:1000;text-transform:uppercase;letter-spacing:.25em;font-size:clamp(14px,1.7vw,28px)}
+    .confetti{position:absolute;left:var(--x);top:-10vh;width:var(--w);height:var(--h);background:var(--c);opacity:.92;border-radius:2px;transform:rotate(var(--r));animation:confettiFall var(--d) var(--delay) linear forwards;pointer-events:none}
+    @keyframes confettiFall{to{top:110vh;left:calc(var(--x) + var(--drift));transform:rotate(900deg);opacity:0}}
+    @media(prefers-reduced-motion:reduce){.celebration::before,.celebration-title,.confetti,.count-card.bump,.number.bump,.spark{animation:none!important}.confetti{display:none}}
+
+    /* v6: British Arena square-edge navy presentation */
+    :root{--arena-bg:#0B1F55;--arena-bg-2:#0B1F55;--arena-panel:#0B1F55;--arena-panel-solid:#0B1F55}
+    html,body,main{background:#0B1F55!important}
+    body::before,body::after,.count-card::before,.count-card::after{display:none!important}
+    .count-card,.qr-panel,footer,.tag,.kicker,.controls,.demo-banner,.gain-toast,.celebration,.progress,.fill,input,select,button,.qr,.confetti{border-radius:0!important}
+    .count-card,.qr-panel,footer,.tag,.kicker{background:#0B1F55!important;box-shadow:none!important}
+    .controls{background:#0B1F55!important}
+    .celebration{background:#0B1F55!important}
+    .celebration::before{display:none!important}
+    .newsletter-goal{position:fixed;inset:0;background:#0B1F55;z-index:27;display:none;align-items:center;justify-content:center;flex-direction:column;gap:22px;text-align:center;padding:35px;overflow:hidden}
+    .newsletter-goal.active{display:flex}
+    .controls textarea{width:100%;background:#0a1730;color:white;border:1px solid #6f88b6;padding:10px;resize:vertical;border-radius:0}
+    .animation-detail{border:1px solid var(--arena-border);padding:10px;margin:12px 0}
+    .animation-detail strong{display:block;margin-bottom:9px}
+    .rolling-ball .ball-shape{font-size:var(--ball-size,72px)!important}
+    .newsletter-goal .goal-ball{font-size:var(--goal-ball-size,80px)}
+    .newsletter-goal.active .goal-ball{animation-duration:var(--goal-travel-duration,2s)}
+    .newsletter-goal.active .goal-graphics::after{animation-duration:var(--goal-word-duration,1.2s);animation-delay:var(--goal-word-delay,1.5s)}
+    .newsletter-goal h2{font-size:clamp(42px,8vw,120px);line-height:1.02;margin:0;font-weight:1000;letter-spacing:.015em;text-transform:uppercase}
+    .newsletter-goal p{font-size:clamp(18px,2.4vw,36px);margin:0;color:#e0e8ff}
+    .newsletter-pitch{font-size:clamp(14px,1.5vw,25px);font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:#a5c3ff}
+    .goal-graphics{position:relative;width:min(85vw,1100px);height:180px;overflow:hidden}
+    .goal-post{position:absolute;right:6%;bottom:15px;width:175px;height:130px;border:9px solid #fff;border-bottom:0;transform:skewY(-4deg);background:repeating-linear-gradient(90deg,transparent 0 20px,#ffffff38 20px 22px),repeating-linear-gradient(0deg,transparent 0 18px,#ffffff38 18px 20px)}
+    .goal-ball{position:absolute;left:-95px;bottom:15px;font-size:80px;line-height:1;animation:shootGoal 2s cubic-bezier(.2,.7,.25,1) forwards}
+    .goal-ball::before{content:'⚽';display:block;animation:goalSpin .6s linear infinite}
+    @keyframes shootGoal{0%{left:-95px;bottom:15px;transform:scale(.85)}65%{left:68%;bottom:110px;transform:scale(.65)}100%{left:calc(94% - 140px);bottom:34px;transform:scale(.46)}}
+    @keyframes goalSpin{to{transform:rotate(360deg)}}
+    .newsletter-goal .goal-graphics::after{content:'GOAL!';position:absolute;right:5%;top:0;font-size:clamp(32px,5vw,65px);font-weight:1000;color:#fff;opacity:0;animation:goalWord 1.2s 1.5s ease forwards}
+    @keyframes goalWord{to{opacity:1;transform:scale(1.06)}}
+    .newsletter-goal.active .goal-ball,.newsletter-goal.active .goal-ball::before,.newsletter-goal.active .goal-graphics::after{animation-play-state:running}
+    @media(prefers-reduced-motion:reduce){.goal-ball,.goal-ball::before,.newsletter-goal .goal-graphics::after{animation:none!important}.goal-ball{left:65%;bottom:32px}.newsletter-goal .goal-graphics::after{opacity:1}}
+
+    /* v9: full visual editor with live embedded preview */
+    .controls{display:none;inset:0!important;top:0!important;left:0!important;right:0!important;bottom:0!important;width:100vw!important;height:100dvh!important;max-height:none!important;max-width:none!important;overflow:hidden!important;padding:0!important;border:0!important;z-index:100!important;background:#0B1F55!important;box-shadow:none!important}
+    .editor-top{height:78px;display:flex;align-items:center;justify-content:space-between;padding:16px 28px;background:#091a49;border-bottom:1px solid #5670aa}
+    .editor-top h2{margin:0;font-size:24px}
+    .editor-eyebrow{font-size:11px;letter-spacing:.2em;color:#9dbaff;font-weight:900}
+    .controls .editor-close{width:42px;height:42px;background:#20366b;font-size:18px}
+    .editor-layout{display:grid;grid-template-columns:minmax(330px,430px) minmax(0,1fr);height:calc(100dvh - 78px)}
+    .editor-sidebar{min-width:0;overflow-y:auto;border-right:1px solid #5670aa;padding:18px 22px 28px;background:#0B1F55}
+    .editor-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:17px}
+    .controls .editor-tab{background:#142e69!important;border:1px solid #536da0!important;color:white!important;text-align:center;padding:12px 6px;margin:0;font-size:13px}
+    .controls .editor-tab.active{background:#fff!important;color:#0B1F55!important;border-color:white!important}
+    .editor-section{display:none}.editor-section.active{display:block}
+    #editor-integrations-extra{display:block}
+    .editor-bottom{position:sticky;bottom:-28px;background:#091a49;padding:14px 6px;margin:18px -6px 0;border-top:1px solid #5670aa;z-index:2}
+    .editor-bottom span{display:block;color:#b9c9e6;font-size:12px;margin-top:7px}
+    .editor-hidden-actions{display:none}
+    .editor-preview{min-width:0;display:flex;flex-direction:column;padding:20px 24px;gap:18px;background:#08173e}
+    .preview-header{display:flex;justify-content:space-between;align-items:center;gap:20px}
+    .preview-header strong{letter-spacing:.13em;font-size:13px}.preview-header p{font-size:12px;color:#b9c9e6;margin:6px 0 0}
+    .preview-header select{width:auto;max-width:250px}
+    .preview-stage{min-height:0;flex:1;position:relative;overflow:hidden;border:1px solid #6379ac;background:#0B1F55}
+    .preview-stage iframe{display:block;border:0;width:100%;height:100%;background:#0B1F55}
+    .preview-help{font-size:12px;color:#b9c9e6}
+    .controls label{line-height:1.45}.controls input,.controls select,.controls textarea{background:#091b49}
+    .controls .brand-controls{border-color:#536da0}
+    body.editor-preview-only .settings, body.cloud-player .settings{display:none!important}
+    body.editor-preview-only main{min-height:100dvh}
+    @media(max-width:950px){.editor-layout{grid-template-columns:1fr;overflow-y:auto}.editor-sidebar{overflow:visible;border-right:0}.editor-preview{min-height:450px}.controls{overflow:auto!important}.editor-top{position:sticky;top:0;z-index:6}}
+
+    .event-playlist-list{display:flex;flex-direction:column;gap:9px;margin:12px 0}
+    .event-playlist-row{display:flex;gap:9px;align-items:center;padding:9px;background:#122b65;border:1px solid #49649a}
+    .event-playlist-row input[type="checkbox"]{width:auto;flex:none}
+    .event-playlist-row span{flex:1;font-size:13px}
+    .event-status-banner{position:fixed;z-index:4;bottom:88px;left:4vw;background:#07163f;border-left:5px solid #fff;padding:8px 14px;color:#fff;font:800 12px Arial;letter-spacing:.12em;text-transform:uppercase;pointer-events:none}
+    .event-mode-input{display:block;width:100%}
+    /* Slide manager / sponsor, advert and event screens: flat, square British Arena design. */
+    .custom-slide{width:100%;min-height:65vh;display:grid;grid-template-columns:1.06fr 1fr;align-items:stretch;background:#0B1F55;border:1px solid #6478ad;overflow:hidden}
+    .custom-slide.no-image{grid-template-columns:1fr}.custom-slide.no-image .custom-media{display:none}
+    .custom-media{min-height:45vh;background:#0a1948;overflow:hidden}.custom-media img{width:100%;height:100%;object-fit:cover;display:block}
+    .custom-copy{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:clamp(12px,2vh,24px);padding:clamp(24px,4vw,70px)}
+    .custom-type{color:#9dbaff;font-size:clamp(12px,1.4vw,22px);font-weight:900;letter-spacing:.22em;text-transform:uppercase}
+    .custom-copy h1{font-size:clamp(34px,5vw,92px);font-weight:1000;line-height:1.05;letter-spacing:.01em;text-transform:uppercase;margin:0;overflow-wrap:anywhere}
+    .custom-copy p{font-size:clamp(16px,2vw,33px);margin:0;line-height:1.3;white-space:pre-line;overflow-wrap:anywhere}
+    .custom-copy #customDetails{color:#b8caeb;font-size:clamp(15px,1.6vw,26px)}
+    .custom-cta{background:var(--arena-red);padding:14px 22px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;font-size:clamp(14px,1.5vw,24px)}
+    .custom-qr{display:flex;align-items:center;gap:14px;font-size:13px;letter-spacing:.12em;font-weight:900}.custom-qr img{width:110px;height:110px;padding:6px;background:white}
+    .slide-editor-item{border:1px solid #5970a5;margin:10px 0;padding:10px;background:#112a66}
+    .slide-editor-item[draggable="true"]{cursor:grab}.slide-item-header{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+    .slide-item-header strong{flex:1;font-size:14px}.slide-item-header button{width:32px;padding:6px 0;margin:0;background:#344d83}
+    .slide-field-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.slide-field-row label{flex:1;min-width:105px}
+    .slide-field-row input[type="checkbox"]{width:auto}.slide-editor-item details{margin-top:10px}.slide-editor-item summary{cursor:pointer;font-weight:700}
+    .slide-editor-item textarea{width:100%;background:#091b49;color:white;border:1px solid #6f88b6;padding:10px;resize:vertical}
+    .editor-tab{min-height:40px}
+    @media(max-width:900px){.custom-slide{grid-template-columns:1fr}.custom-media{min-height:22vh;max-height:32vh}.custom-copy{padding:20px}.custom-copy h1{font-size:clamp(29px,6vw,55px)}}
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="brand-wrap" id="brandWrap"><img id="brandLogo" class="brand-logo" alt="British Arena logo">
+        <div class="brand-mark"></div>
+        <div class="brand-stack">
+          <div class="brand">British <span class="accent">Arena</span></div>
+          <div class="brand-sub">Sunderland · Live Social Wall</div>
+        </div>
+      </div>
+      <div class="tag"><span class="tag-dot"></span> Social growth live</div>
+    </header>
+
+    <section class="hero" id="countView">
+      <div class="count-card" id="countCard">
+        <div id="sparkLayer"></div>
+        <div class="kicker" id="network">Instagram</div>
+        <div class="eyebrow">Join the community</div>
+        <div class="number-wrap">
+          <div class="number-ring" id="numberRing"></div>
+          <div class="number" id="count">...</div>
+        </div>
+        <div class="sub">Followers and counting</div>
+        <div class="progress-wrap">
+          <div class="progress-meta">
+            <span>Current audience</span>
+            <span id="targetMeta">Target 3,000</span>
+          </div>
+          <div class="progress"><div class="fill" id="fill"></div></div>
+        </div>
+        <div class="sub sub-muted" id="remaining">Help us reach our next milestone</div>
+        <div class="gain" id="gain"></div>
+      </div>
+    </section>
+
+    <section class="hero cta" id="ctaView">
+      <div class="count-card">
+        <div class="cta-grid">
+          <div class="qr-panel">
+            <div class="kicker" id="ctaNetwork">Follow us on Instagram</div>
+            <div class="qr"><img id="qr" alt="Follow account QR code"></div>
+            <div class="handle" id="handle">Scan to follow</div>
+          </div>
+          <div class="cta-copy">
+            <div class="headline" id="ctaHeadline">Help get us to 3,000!</div>
+            <div class="sub" id="socialDescription">Follow British Arena for live events, screenings, esports, venue updates and community moments from Sunderland.</div>
+            <div class="sub sub-muted" id="socialFootnote">Scan the QR code and join the next wave of followers.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="hero" id="customView" style="display:none" aria-label="Custom presentation slide">
+      <div class="custom-slide" id="customSlideCard">
+        <div class="custom-media" id="customMedia"><img id="customImage" alt="Promotional slide image"></div>
+        <div class="custom-copy"><div class="custom-type" id="customType">SPONSOR</div><h1 id="customTitle">BE PART OF THE ARENA</h1><p id="customSubtitle"></p><p id="customDetails"></p><div class="custom-cta" id="customCTA"></div><div class="custom-qr" id="customQrWrap"><img id="customQr" alt="QR code for promotional link"><span>SCAN FOR MORE</span></div></div>
+      </div>
+    </section>
+    <section class="hero cta" id="newsletterView" aria-label="Join our newsletter">
+      <div class="count-card newsletter-card">
+        <div class="cta-grid">
+          <div class="qr-panel">
+            <div class="kicker" id="newsletterKicker">THE ARENA INSIDER</div>
+            <div class="qr" id="newsletterQrBox"><img id="newsletterQr" alt="QR code to British Arena newsletter signup"></div>
+            <div class="handle" id="newsletterQrText">Add newsletter URL in settings</div>
+          </div>
+          <div class="cta-copy">
+            <div class="eyebrow" id="newsletterEyebrow">DON'T MISS WHAT'S NEXT</div>
+            <div class="headline" id="newsletterHeadline">JOIN OUR NEWSLETTER</div>
+            <div class="sub" id="newsletterDescription">Get the latest events, matchday screenings, esports, announcements and exclusive Arena updates.</div>
+            <div class="sub sub-muted" id="newsletterFootnote">Scan the QR code to sign up.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <span class="footer-keyline">Be part of the arena</span>
+      <span class="muted" id="status">Connecting...</span>
+    </footer>
+  </main>
+
+  <div id="celebration" class="celebration" role="status" aria-live="polite" aria-label="Follower goal celebration">
+    <div class="celebration-overline" id="celebrationChannel">Instagram</div>
+    <div class="celebration-title">Goal reached!</div>
+    <div class="celebration-count" id="celebrationCount">3,000</div>
+    <div class="celebration-sub">Thank you for being part of the British Arena community.</div>
+    <div class="celebration-brand">BRITISH ARENA · SUNDERLAND</div>
+    <div id="confettiLayer" aria-hidden="true"></div>
+  </div>
+  <div id="eventModeBanner" class="event-status-banner" style="display:none"></div>
+  <div id="demoBanner" class="demo-banner">Demo mode · simulated follower data</div>
+  <div id="footballLane" class="football-lane" aria-hidden="true"></div>
+  <div id="newsletterGoal" class="newsletter-goal" role="status" aria-live="polite">
+    <span class="newsletter-pitch" id="eventGoalSource">British Arena · Newsletter</span>
+    <h2 id="eventGoalTitle">New subscriber!</h2>
+    <div class="goal-graphics" aria-hidden="true"><div class="goal-post"></div><div class="goal-ball"></div></div>
+    <p id="eventGoalMessage">Another supporter joins the Arena.</p>
+  </div>
+  <div id="gainToast" class="gain-toast">+1 New follower in the arena!</div>
+
+  <button class="settings" onclick="toggleSettings()" aria-label="Settings">⚙</button>
+  <aside class="controls" id="panel" aria-label="Dashboard visual editor">
+    <div class="editor-top"><div><div class="editor-eyebrow">BRITISH ARENA</div><h2>Visual dashboard editor</h2></div><button type="button" class="editor-close" onclick="toggleSettings()" aria-label="Close editor">✕</button></div>
+    <div class="editor-layout"><div class="editor-sidebar">
+      <nav class="editor-tabs" aria-label="Editor sections">
+        <button type="button" class="editor-tab active" data-tab="branding" onclick="selectEditorTab('branding')">Branding</button>
+        <button type="button" class="editor-tab" data-tab="cards" onclick="selectEditorTab('cards')">Signup Cards</button>
+        <button type="button" class="editor-tab" data-tab="animations" onclick="selectEditorTab('animations')">Animations</button>
+        <button type="button" class="editor-tab" data-tab="slides" onclick="selectEditorTab('slides')">Slides</button>
+        <button type="button" class="editor-tab" data-tab="events" onclick="selectEditorTab('events')">Event Mode</button>
+        <button type="button" class="editor-tab" data-tab="integrations" onclick="selectEditorTab('integrations')">Integrations</button>
+      </nav>
+      <div class="editor-section active" id="editor-branding">
+    <div class="brand-controls">
+      <strong>British Arena branding</strong>
+      <label>Upload arena logo (PNG, SVG, WEBP or JPG)<input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp,image/svg+xml" onchange="uploadLogo(this)"></label>
+      <button class="secondary-button" onclick="clearLogo()">Remove uploaded logo</button>
+      <div class="settings-row">
+        <label>Primary blue<input class="swatch-input" id="brandBlue" type="color" value="#2f6bff"></label>
+        <label>Accent red<input class="swatch-input" id="brandRed" type="color" value="#ef233c"></label>
+      </div>
+      <label>Display font<select id="brandFont"><option value="arena">Arena bold (default)</option><option value="arial">Arial</option><option value="system">System sans</option><option value="impact">Impact</option></select></label>
+      <p class="control-note">Upload your official British Arena logo and adjust colours to match your brand guide. Changes save locally in this browser.</p>
+    </div>
+      </div><div class="editor-section" id="editor-integrations">
+    <label>Instagram profile URL<input id="igUrl" placeholder="https://www.instagram.com/yourhandle/"></label>
+    <label>Facebook Page URL<input id="fbUrl" placeholder="https://www.facebook.com/yourpage/"></label>
+    <label>Instagram target<input id="igTarget" type="number" min="1"></label>
+    <label>Facebook target<input id="fbTarget" type="number" min="1"></label>
+      </div><div class="editor-section" id="editor-cards">
+    <div class="brand-controls">
+      <strong>Newsletter screen</strong>
+      <label>Newsletter signup URL<input id="newsletterUrl" type="url" placeholder="https://britisharena.com/your-newsletter-signup/"></label>
+      <label style="display:flex;align-items:center;gap:10px"><input id="newsletterEnabled" type="checkbox" style="width:auto" checked>Include newsletter in automatic rotation</label>
+      <div class="brand-controls">
+        <strong>Newsletter card text</strong>
+        <label>Eyebrow<input id="newsletterEyebrowText" maxlength="100"></label>
+        <label>Headline<input id="newsletterHeadlineText" maxlength="120"></label>
+        <label>Description<textarea id="newsletterDescriptionText" rows="3" maxlength="400"></textarea></label>
+        <label>Supporting text<input id="newsletterFootnoteText" maxlength="180"></label>
+        <label>QR panel label<input id="newsletterKickerText" maxlength="100"></label>
+      </div>
+      <button class="secondary-button" onclick="previewNewsletter()">Preview newsletter screen</button>
+      <button class="secondary-button" onclick="previewNewsletterSignup()">Preview newsletter signup goal ⚽</button>
+      <p class="control-note">For real notifications, connect your signup platform to the authenticated <code>POST /api/newsletter-event</code> webhook. See README for setup.</p>
+      <p class="control-note">Paste your actual signup page URL. The QR code will send visitors directly there. No email addresses are stored by this dashboard.</p>
+    </div>
+    <div class="brand-controls">
+      <strong>Social signup card text</strong>
+      <p class="control-note">Separate copy for Instagram and Facebook. Use {target} to insert the current follower target.</p>
+      <label>Instagram headline<input id="instagramHeadlineText" maxlength="140"></label>
+      <label>Instagram description<textarea id="instagramDescriptionText" rows="3" maxlength="400"></textarea></label>
+      <label>Instagram supporting text<input id="instagramFootnoteText" maxlength="180"></label>
+      <label>Facebook headline<input id="facebookHeadlineText" maxlength="140"></label>
+      <label>Facebook description<textarea id="facebookDescriptionText" rows="3" maxlength="400"></textarea></label>
+      <label>Facebook supporting text<input id="facebookFootnoteText" maxlength="180"></label>
+    </div>
+      </div><div class="editor-section" id="editor-animations">
+    <div class="brand-controls" id="animationSettings">
+      <strong>Event animations</strong>
+      <p class="control-note">Choose what happens for each event. Changes apply to simulated data and later live connections.</p>
+      <label>New Instagram follower<select id="instagramAnimation"></select></label>
+      <button class="secondary-button" type="button" onclick="previewEvent('instagram')">Preview Instagram animation</button>
+      <label>New Facebook follower<select id="facebookAnimation"></select></label>
+      <button class="secondary-button" type="button" onclick="previewEvent('facebook')">Preview Facebook animation</button>
+      <label>New newsletter subscriber<select id="newsletterAnimation"></select></label>
+      <button class="secondary-button" type="button" onclick="previewEvent('newsletter')">Preview newsletter animation</button>
+      <div class="brand-controls">
+        <strong>Animation timing, football size and celebration copy</strong>
+        <p class="control-note">Set these independently for each event. Duration is in seconds; football size is in pixels.</p>
+        <div id="eventDetailControls"></div>
+      </div>
+      <p class="control-note">Options: rolling football, football into goal, follower pop and spark burst, or none. Goal milestone celebrations remain independent.</p>
+    </div>
+      </div><div class="editor-section" id="editor-slides">
+        <div class="brand-controls"><strong>Slide manager</strong><p class="control-note">Drag the handles to reorder screens, or use ↑ and ↓. Disable a slide to hide it. Each slide has its own duration.</p>
+        <div id="slideOrderList"></div>
+        <button type="button" onclick="addCustomSlide('sponsor')">+ Sponsor slide</button>
+        <button type="button" onclick="addCustomSlide('advert')">+ Advert slide</button>
+        <button type="button" onclick="addCustomSlide('event')">+ Upcoming event slide</button>
+        <button type="button" onclick="addCustomSlide('custom')">+ Blank custom slide</button>
+        <p class="control-note">Images are resized locally for browser storage. Large libraries may exceed the browser's storage allowance; export your backup regularly.</p>
+        <button type="button" class="secondary-button" onclick="exportSlideBackup()">Export slides JSON</button>
+        <label>Import slides JSON<input type="file" accept="application/json,.json" onchange="importSlideBackup(this)"></label>
+        </div>
+      </div><div class="editor-section" id="editor-events">
+        <div class="brand-controls">
+          <strong>Event Mode</strong>
+          <p class="control-note">Run a dedicated playlist during an event. Your normal slide order is preserved. You can turn Event Mode off at any time.</p>
+          <label style="display:flex;align-items:center;gap:9px"><input id="eventModeEnabled" type="checkbox" style="width:auto" onchange="setEventModeEnabled(this.checked)"> Enable Event Mode</label>
+          <label>Event playlist<select id="eventPlaylist" onchange="selectEventPlaylist(this.value)"></select></label>
+          <div id="eventModeStatus" class="control-note" aria-live="polite"></div>
+          <button type="button" onclick="createEventPlaylist()">+ Create event playlist</button>
+          <button type="button" class="secondary-button" onclick="cloneEventPlaylist()">Duplicate selected playlist</button>
+          <button type="button" class="secondary-button" onclick="deleteEventPlaylist()">Delete selected playlist</button>
+          <div id="eventPlaylistEditor"></div>
+          <p class="control-note">Edits to playlists are saved when you select Save settings. You can also activate Event Mode instantly using the checkbox above.</p>
+        </div>
+      </div><div class="editor-section" id="editor-integrations-extra">
+    <label>Screen rotation, seconds<input id="rotation" type="number" min="5"></label>
+    <label>Mode<select id="mode"><option value="both">Alternate Instagram and Facebook</option><option value="instagram">Instagram only</option><option value="facebook">Facebook only</option></select></label>
+    </div>
+    <div class="editor-bottom"><button type="button" onclick="saveSettings()">Save settings</button><span id="editorSaveNote" aria-live="polite">Changes preview live before saving.</span></div>
+    </div><div class="editor-preview">
+      <div class="preview-header"><div><strong>LIVE PREVIEW</strong><p>See edits before saving</p></div><select id="editorPreviewSlide" aria-label="Preview screen" onchange="setEditorPreviewSlide(this.value)"><option value="count-instagram">Instagram followers</option><option value="count-facebook">Facebook followers</option><option value="cta-instagram">Instagram signup</option><option value="cta-facebook">Facebook signup</option><option value="newsletter">Newsletter signup</option></select></div>
+      <div class="preview-stage"><iframe id="editorPreviewFrame" title="Live dashboard preview" src="/admin?editor-preview=1"></iframe></div>
+      <div class="preview-help">Live preview is isolated from the presentation screen. Use the animation preview controls to view full-screen effects.</div>
+    </div></div>
+    <div class="editor-hidden-actions">
+    <button onclick="saveSettings()">Save settings (classic)</button>
+    <button onclick="startEvent()">Start event tracking</button>
+    <button onclick="stopEvent()">Clear event tracking</button>
+    <button onclick="document.documentElement.requestFullscreen()">Go full screen</button>
+    <button class="secondary-button" onclick="previewMilestone()">Preview goal celebration</button>
+    <button class="secondary-button" onclick="previewFootball()">Preview rolling football ⚽</button>
+    <p class="control-note">The goal celebration triggers once per target crossing for each social network. It resets if you increase the target beyond the current count.</p>
+    <p class="warn">Set real profile URLs before showing QR codes to guests. Demo mode displays simulated follower numbers, clearly labelled as DEMO. Switch DEMO_MODE=false in .env and supply valid Meta credentials to go live.</p>
+    </div>
+  </aside>
+
+<script>
+/* Cloud sync: apply shared configuration before the dashboard initializes. */
+window.arenaCloudReady=(async()=>{
+  try{
+    const response=await fetch('/api/config'+location.search,{cache:'no-store',credentials:'same-origin'});
+    if(!response.ok)throw Error('Cloud configuration unavailable');
+    const payload=await response.json();
+    for(const [key,value] of Object.entries(payload.settings||{}))localStorage.setItem(key,value);
+    window.arenaCloudVersion=payload.version||0;
+    return true;
+  }catch(e){document.body.dataset.cloudError=e.message;return false}
+})();
+</script>
+  <script>
+  window.arenaCloudReady.then(()=>{
+    const copyDefaults={
+      newsletterEyebrowText:"DON'T MISS WHAT'S NEXT",newsletterHeadlineText:'JOIN OUR NEWSLETTER',
+      newsletterDescriptionText:'Get the latest events, matchday screenings, esports, announcements and exclusive Arena updates.',
+      newsletterFootnoteText:'Scan the QR code to sign up.',newsletterKickerText:'THE ARENA INSIDER',
+      instagramHeadlineText:'HELP GET US TO {target}!',instagramDescriptionText:'Follow British Arena for live events, screenings, esports, venue updates and community moments from Sunderland.',
+      instagramFootnoteText:'Scan the QR code and join the next wave of followers.',
+      facebookHeadlineText:'HELP GET US TO {target}!',facebookDescriptionText:'Follow British Arena for live events, screenings, esports, venue updates and community moments from Sunderland.',
+      facebookFootnoteText:'Scan the QR code and join the next wave of followers.'
+    };
+    let cardCopy={...copyDefaults,...JSON.parse(localStorage.getItem('arenaCardCopy')||'{}')};
+    const detailDefaults={instagram:{duration:4.4,size:76,title:'New Instagram follower!',message:'Another supporter joins the Arena.'},
+      facebook:{duration:4.4,size:76,title:'New Facebook follower!',message:'Another supporter joins the Arena.'},
+      newsletter:{duration:5.5,size:80,title:'New subscriber!',message:'Another supporter joins the Arena.'}};
+    let eventDetails={...detailDefaults,...JSON.parse(localStorage.getItem('arenaAnimationDetails')||'{}')};
+    for(const ch of Object.keys(detailDefaults))eventDetails[ch]={...detailDefaults[ch],...(eventDetails[ch]||{})};
+    function eventDetailsForm(){
+      const container=$('eventDetailControls');container.replaceChildren();
+      for(const ch of Object.keys(detailDefaults)){
+        const block=document.createElement('div');block.className='animation-detail';
+        const heading=document.createElement('strong');heading.textContent=ch.toUpperCase();block.appendChild(heading);
+        for(const [field,label,type,min,max] of [['duration','Animation duration (seconds)','number',1,20],['size','Football size (px)','number',24,200],['title','Celebration headline','text',null,null],['message','Celebration message','text',null,null]]){
+          const wrap=document.createElement('label');wrap.textContent=label;
+          const el=document.createElement('input');el.id=ch+'Detail'+field;el.type=type;el.value=eventDetails[ch][field];
+          if(type==='number'){el.min=min;el.max=max;el.step=field==='duration'?'0.1':'1'}
+          el.maxLength=type==='text'?180:100;wrap.appendChild(el);block.appendChild(wrap);
+        }container.appendChild(block);
+      }
+    }
+    function readEventDetails(){
+      for(const ch of Object.keys(detailDefaults)){
+        const d={};
+        for(const field of ['duration','size','title','message']){
+          const el=$(ch+'Detail'+field);
+          d[field]=field==='duration'?Math.min(20,Math.max(1,Number(el.value)||detailDefaults[ch].duration)):
+            field==='size'?Math.min(200,Math.max(24,Number(el.value)||detailDefaults[ch].size)):el.value.trim().slice(0,180);
+        }eventDetails[ch]=d;
+      }
+    }
+    function interpolateCopy(value,target){return String(value||'').replaceAll('{target}',fmt(target))}
+    const defaults={igUrl:'',fbUrl:'',newsletterUrl:'',newsletterEnabled:true,igTarget:3000,fbTarget:3000,rotation:12,mode:'both'};
+    let cfg={...defaults,...JSON.parse(localStorage.getItem('arenaSettings')||'{}')};
+    let data={instagram:null,facebook:null,updated:null,error:null};
+    let index=0,last={instagram:null,facebook:null};
+    let event=JSON.parse(localStorage.getItem('arenaEvent')||'null');
+    let flashTimer, celebrationTimer, newsletterTimer;
+    const animationOptions=[['roll','Rolling football across screen'],['goal','Football into goal'],['pop','Follower pop + sparks'],['none','No animation']];
+    const animationDefaults={instagram:'roll',facebook:'roll',newsletter:'goal'};
+    let animations={...animationDefaults,...JSON.parse(localStorage.getItem('arenaEventAnimations')||'{}')};
+    for(const key of Object.keys(animationDefaults))if(!animationOptions.some(([id])=>id===animations[key]))animations[key]=animationDefaults[key];
+    let newsletterEventCursor=0;
+    let previewNewsletterActive=false;
+    let rotationHandle=null;
+    const milestoneSeen=JSON.parse(localStorage.getItem('arenaMilestonesSeen')||'{}');
+    let previousCounts={instagram:null,facebook:null};
+    const brandDefaults={brandBlue:'#2f6bff',brandRed:'#ef233c',brandFont:'arena'};
+    let brand={...brandDefaults,...JSON.parse(localStorage.getItem('arenaBrand')||'{}')};
+    let logo=localStorage.getItem('arenaLogo')||'';
+
+    const $=id=>document.getElementById(id);
+    const fmt=n=>Number(n).toLocaleString('en-GB');
+
+    function toggleSettings(){ $('panel').style.display=$('panel').style.display==='block'?'none':'block'; }
+    function loadAnimationForm(){
+      for(const channel of Object.keys(animationDefaults)){
+        const select=$(channel+'Animation');
+        select.replaceChildren();
+        for(const [value,label] of animationOptions){const opt=document.createElement('option');opt.value=value;opt.textContent=label;select.appendChild(opt)}
+        select.value=animations[channel];
+      }
+    }
+    function previewEvent(channel){sendPreviewState();sendPreviewAction('event',channel);}
+    function loadForm(){ for(const k of Object.keys(defaults)) {if(k==='newsletterEnabled') $(k).checked=Boolean(cfg[k]); else $(k).value=cfg[k];} for(const k of Object.keys(brandDefaults)) $(k).value=brand[k]; loadAnimationForm(); eventDetailsForm(); for(const k of Object.keys(copyDefaults))$(k).value=cardCopy[k]; applyBrand(); }
+    function applyBrand(){
+      document.documentElement.style.setProperty('--arena-blue',brand.brandBlue);
+      document.documentElement.style.setProperty('--arena-red',brand.brandRed);
+      document.documentElement.style.setProperty('--arena-blue-soft',brand.brandBlue);
+      document.documentElement.style.setProperty('--arena-red-soft',brand.brandRed);
+      const fonts={arena:'Inter, Arial, Helvetica, sans-serif',arial:'Arial, Helvetica, sans-serif',system:'system-ui, sans-serif',impact:'Impact, Arial Narrow, sans-serif'};
+      document.documentElement.style.fontFamily=fonts[brand.brandFont]||fonts.arena;
+      $('brandLogo').src=logo||'';
+      $('brandWrap').classList.toggle('has-logo',!!logo);
+    }
+    function uploadLogo(input){
+      const file=input.files&&input.files[0];if(!file)return;
+      if(file.size>1.5*1024*1024){alert('Choose a logo smaller than 1.5 MB.');input.value='';return}
+      const reader=new FileReader();reader.onload=()=>{
+        try{logo=String(reader.result);localStorage.setItem('arenaLogo',logo);applyBrand();setTimeout(()=>window.arenaCloudSync?.(),0)}
+        catch(e){alert('Unable to save this image in browser storage. Try a smaller logo.')}
+      };reader.readAsDataURL(file);
+    }
+    function clearLogo(){logo='';localStorage.removeItem('arenaLogo');setTimeout(()=>window.arenaCloudSync?.(),0);$('logoFile').value='';applyBrand()}
+    function showMilestone(channel,count){
+      const box=$('celebration');$('celebrationChannel').textContent=channel.toUpperCase()+' COMMUNITY';$('celebrationCount').textContent=fmt(count);
+      const layer=$('confettiLayer');layer.replaceChildren();
+      const colors=[brand.brandBlue,brand.brandRed,'#ffffff','#b6d9ff','#ffb4bd'];
+      for(let i=0;i<130;i++){
+        const piece=document.createElement('span');piece.className='confetti';
+        piece.style.setProperty('--x',Math.random()*100+'vw');piece.style.setProperty('--w',(5+Math.random()*9)+'px');piece.style.setProperty('--h',(10+Math.random()*20)+'px');piece.style.setProperty('--c',colors[i%colors.length]);piece.style.setProperty('--r',Math.random()*360+'deg');piece.style.setProperty('--d',(2.8+Math.random()*3)+'s');piece.style.setProperty('--delay',(Math.random()*1.25)+'s');piece.style.setProperty('--drift',(Math.random()*240-120)+'px');layer.appendChild(piece);
+      }
+      box.classList.add('active');clearTimeout(celebrationTimer);
+      celebrationTimer=setTimeout(()=>{box.classList.remove('active');layer.replaceChildren()},7000);
+    }
+    function previewMilestone(){sendPreviewState();sendPreviewAction('milestone','instagram')}
+    function checkMilestones(ch,current){
+      const target=cfg[ch==='instagram'?'igTarget':'fbTarget'];const key=ch+':'+target;
+      if(typeof current!=='number')return;
+      if(current<target){delete milestoneSeen[key];localStorage.setItem('arenaMilestonesSeen',JSON.stringify(milestoneSeen));return}
+      if(typeof previousCounts[ch]==='number'&&previousCounts[ch]<target&&current>=target&&!milestoneSeen[key]){
+        milestoneSeen[key]=true;localStorage.setItem('arenaMilestonesSeen',JSON.stringify(milestoneSeen));showMilestone(ch,current);
+      }
+    }
+    function saveSettings(){
+      for(const k of Object.keys(defaults)) cfg[k]=k==='newsletterEnabled'?$('newsletterEnabled').checked:['igTarget','fbTarget','rotation'].includes(k)?Math.max(1,Number($(k).value)||defaults[k]):$(k).value;
+      if(cfg.newsletterUrl && !validSignupUrl(cfg.newsletterUrl)){alert('Please enter a valid http:// or https:// newsletter signup URL.');return;}
+      localStorage.setItem('arenaSettings',JSON.stringify(cfg));
+      for(const channel of Object.keys(animationDefaults))animations[channel]=$(channel+'Animation').value;
+      localStorage.setItem('arenaEventAnimations',JSON.stringify(animations));
+      readEventDetails();
+      localStorage.setItem('arenaAnimationDetails',JSON.stringify(eventDetails));
+      for(const k of Object.keys(copyDefaults))cardCopy[k]=$(k).value.slice(0,400);
+      localStorage.setItem('arenaCardCopy',JSON.stringify(cardCopy));
+      for(const k of Object.keys(brandDefaults))brand[k]=$(k).value;
+      localStorage.setItem('arenaBrand',JSON.stringify(brand));applyBrand();
+      toggleSettings();
+      previewNewsletterActive=false;
+      index=0;
+      saveManagedSlides();saveEventMode();renderEventModeEditor();startRotation();
+      window.arenaCloudSync?.();
+      render();
+    }
+    function startEvent(){ event={instagram:data.instagram,facebook:data.facebook,time:Date.now()};localStorage.setItem('arenaEvent',JSON.stringify(event));render(); }
+    function stopEvent(){ event=null;localStorage.removeItem('arenaEvent');render(); }
+    function channels(){ return cfg.mode==='both'?['instagram','facebook']:[cfg.mode]; }
+    function validSignupUrl(url){try{const u=new URL(url);return ['http:','https:'].includes(u.protocol)}catch(e){return false}}
+    function slides(){return getPresentationSlides()}
+    function previewNewsletter(){setEditorPreviewSlide('newsletter');$('editorPreviewSlide').value='newsletter'}
+    function startRotation(){clearTimeout(rotationHandle);if(document.body.classList.contains('editor-preview-only'))return;const list=slides();const slide=list[index%list.length];const seconds=slide?.duration||cfg.rotation||12;rotationHandle=setTimeout(()=>{previewNewsletterActive=false;index++;render();startRotation()},Math.max(3,seconds)*1000)}
+    function qrUrl(url){ return 'https://api.qrserver.com/v1/create-qr-code/?size=360x360&data='+encodeURIComponent(url); }
+
+    function rerunAnimation(el, cls){
+      if(!el) return;
+      el.classList.remove(cls);
+      void el.offsetWidth;
+      el.classList.add(cls);
+      setTimeout(()=>el.classList.remove(cls), 1400);
+    }
+
+    function spawnSparks(count=12){
+      const layer=$('sparkLayer');
+      if(!layer) return;
+      for(let i=0;i<count;i++){
+        const spark=document.createElement('span');
+        spark.className='spark';
+        const angle=(Math.PI*2*i)/count + Math.random()*0.45;
+        const distance=110 + Math.random()*120;
+        spark.style.setProperty('--dx', Math.cos(angle)*distance);
+        spark.style.setProperty('--dy', Math.sin(angle)*distance);
+        layer.appendChild(spark);
+        setTimeout(()=>spark.remove(), 1000);
+      }
+    }
+
+    function rollFootball(channel='instagram'){
+      const lane=$('footballLane');
+      const ball=document.createElement('div');ball.className='rolling-ball';
+      const detail=eventDetails[channel]||eventDetails.instagram;ball.style.setProperty('--ball-size',detail.size+'px');ball.style.width=detail.size+'px';ball.style.height=detail.size+'px';
+      const emoji=document.createElement('span');emoji.className='ball-shape';emoji.textContent='⚽';
+      ball.appendChild(emoji);
+      ball.style.setProperty('--roll-duration',detail.duration+'s');
+      ball.style.setProperty('--spin-duration',(.58+Math.random()*.18).toFixed(2)+'s');
+      lane.appendChild(ball);
+      ball.addEventListener('animationend',()=>ball.remove(),{once:true});
+      setTimeout(()=>ball.remove(),(detail.duration+1)*1000);
+    }
+    function previewFootball(){sendPreviewState();sendPreviewAction('football','instagram')}
+    function playNewsletterGoal(channel='newsletter'){
+      const detail=eventDetails[channel]||eventDetails.newsletter;
+      const messages={instagram:['Instagram · New follower','New follower!','Another supporter joins the Arena.'],facebook:['Facebook · New follower','New follower!','Another supporter joins the Arena.'],newsletter:['British Arena · Newsletter','New subscriber!','Another supporter joins the Arena.']};
+      const [source,title,message]=messages[channel]||messages.newsletter;
+      $('eventGoalSource').textContent=source;
+      $('eventGoalTitle').textContent=detail.title||title;
+      $('eventGoalMessage').textContent=detail.message||message;
+      const goal=$('newsletterGoal');goal.style.setProperty('--goal-ball-size',detail.size+'px');
+      const travel=Math.max(.5,detail.duration*.55);goal.style.setProperty('--goal-travel-duration',travel+'s');
+      goal.style.setProperty('--goal-word-delay',(travel*.75)+'s');
+      goal.style.setProperty('--goal-word-duration',Math.max(.5,detail.duration*.23)+'s');
+      goal.classList.remove('active');void goal.offsetWidth;goal.classList.add('active');
+      clearTimeout(newsletterTimer);newsletterTimer=setTimeout(()=>goal.classList.remove('active'),detail.duration*1000);
+    }
+    function previewNewsletterSignup(){sendPreviewState();sendPreviewAction('event','newsletter');}
+    async function pollNewsletterEvents(){
+      try{
+        const r=await fetch('/api/newsletter-events?after='+encodeURIComponent(newsletterEventCursor),{cache:'no-store'});
+        if(!r.ok) return;
+        const d=await r.json();
+        if(!newsletterEventCursor){newsletterEventCursor=d.latest||0;return}
+        if(Array.isArray(d.events)&&d.events.length){playEventAnimation('newsletter',d.events.length)}
+        newsletterEventCursor=d.latest||newsletterEventCursor;
+      }catch(e){/* Optional live webhook is not configured yet. */}
+    }
+    function playEventAnimation(channel,amount=1){
+      const kind=animations[channel]||animationDefaults[channel];
+      if(kind==='none')return;
+      if(kind==='goal'){playNewsletterGoal(channel);return;}
+      if(kind==='roll'){for(let i=0;i<Math.min(amount,8);i++)setTimeout(()=>rollFootball(channel),i*220);return;}
+      if(kind==='pop'){
+        $('gainToast').textContent=channel==='newsletter'?'NEW NEWSLETTER SUBSCRIBER!':'+'+fmt(amount)+' NEW '+channel.toUpperCase()+' FOLLOWER'+(amount===1?'':'S')+'!';
+        rerunAnimation($('gainToast'),'show');
+        rerunAnimation($('countCard'),'bump');
+        rerunAnimation($('count'),'bump');
+        rerunAnimation($('numberRing'),'pulse');
+        spawnSparks(Math.min(18,10+amount*2));
+      }
+    }
+    function flashGain(channel, amount){
+      playEventAnimation(channel,amount);
+      const niceChannel=channel==='instagram'?'Instagram':'Facebook';
+      const plural=amount===1?'follower':'followers';
+      $('gainToast').textContent='+'+fmt(amount)+' new '+niceChannel+' '+plural+'!';
+      if(animations[channel]==='roll'){rerunAnimation($('gainToast'),'show');}
+    }
+
+    function render(){
+      const slidesList=slides();
+      const slide=previewNewsletterActive?{type:'newsletter'}:document.body.classList.contains('editor-preview-only')&&window.editorSlideId?managedSlides.find(s=>s.id===window.editorSlideId)||slidesList[0]:slidesList[index%slidesList.length];
+      const newsletter=slide.type==='newsletter';const custom=slide.type==='custom';
+      const ch=slide.channel||channels()[0];
+      const cta=slide.type==='social';
+      const n=data[ch];
+      const target=cfg[ch==='instagram'?'igTarget':'fbTarget'];
+      const url=cfg[ch==='instagram'?'igUrl':'fbUrl'];
+      $('countView').style.display=cta||newsletter||custom?'none':'flex';
+      $('ctaView').style.display=cta?'flex':'none';
+      $('newsletterView').style.display=newsletter?'flex':'none';$('customView').style.display=custom?'flex':'none';if(custom)renderCustomSlide(slide);
+      const signup=cfg.newsletterUrl.trim();
+      const ready=validSignupUrl(signup);
+      $('newsletterQr').src=ready?qrUrl(signup):'';
+      $('newsletterQrBox').style.display=ready?'block':'none';
+      $('newsletterQrText').textContent=ready?'SCAN TO JOIN':'ADD SIGNUP URL IN SETTINGS';
+      $('network').textContent=ch.toUpperCase();
+      $('ctaNetwork').textContent='FOLLOW US ON '+ch.toUpperCase();
+      $('count').textContent=n===null?'WAITING FOR DATA':fmt(n);
+      $('count').style.fontSize=n===null?'clamp(34px,5vw,90px)':'';
+      $('fill').style.width=(n===null?0:Math.min(100,n/target*100))+'%';
+      $('remaining').textContent=n===null?'CONNECT META TO SHOW LIVE FOLLOWERS':n>=target?'TARGET ACHIEVED!':fmt(target-n)+' MORE TO REACH '+fmt(target);
+      $('targetMeta').textContent='TARGET '+fmt(target);
+      $('ctaHeadline').textContent=interpolateCopy(cardCopy[ch+'HeadlineText'],target);
+      $('socialDescription').textContent=interpolateCopy(cardCopy[ch+'DescriptionText'],target);
+      $('socialFootnote').textContent=interpolateCopy(cardCopy[ch+'FootnoteText'],target);
+      for(const [id,key] of [['newsletterEyebrow','newsletterEyebrowText'],['newsletterHeadline','newsletterHeadlineText'],['newsletterDescription','newsletterDescriptionText'],['newsletterFootnote','newsletterFootnoteText'],['newsletterKicker','newsletterKickerText']])$(id).textContent=cardCopy[key];
+      $('qr').src=url?qrUrl(url):'';
+      $('qr').style.visibility=url?'visible':'hidden';
+      $('handle').textContent=url?'SCAN TO FOLLOW':'ADD YOUR PROFILE URL IN SETTINGS';
+      $('gain').textContent=event&&event[ch]!==null&&n!==null?'+'+fmt(n-event[ch])+' NET FOLLOWERS SINCE EVENT START':'';
+      $('demoBanner').style.display=data.demo?'block':'none';
+      $('status').textContent=data.demo?'DEMO DATA · Updated '+new Date(data.updated*1000).toLocaleTimeString('en-GB'):data.error?'Last refresh failed':data.updated?'Updated '+new Date(data.updated*1000).toLocaleTimeString('en-GB'):'Awaiting Meta connection';
+    }
+
+    async function poll(){
+      try{
+        const r=await fetch('/api/counts',{cache:'no-store'});
+        if(!r.ok) throw Error();
+        const d=await r.json();
+        for(const ch of ['instagram','facebook']){
+          if(typeof d[ch]==='number'){
+            if(typeof last[ch]==='number' && d[ch]>last[ch]) flashGain(ch, d[ch]-last[ch]);
+            checkMilestones(ch,d[ch]);
+            previousCounts[ch]=d[ch];
+            last[ch]=d[ch];
+          }
+        }
+        data=d;
+        render();
+      }catch(e){
+        $('status').textContent='Connection unavailable';
+      }
+    }
+
+
+    // Individual slide timings and ordering, stored independently from other settings.
+    const builtinSlides=[
+      {id:'count-instagram',type:'count',channel:'instagram',label:'Instagram follower count'},
+      {id:'cta-instagram',type:'social',channel:'instagram',label:'Instagram signup'},
+      {id:'count-facebook',type:'count',channel:'facebook',label:'Facebook follower count'},
+      {id:'cta-facebook',type:'social',channel:'facebook',label:'Facebook signup'},
+      {id:'newsletter',type:'newsletter',label:'Newsletter signup'}
+    ];
+    const slideKey='arenaSlidesV10';
+    function readSlides(){try{const raw=JSON.parse(localStorage.getItem(slideKey)||'null');if(Array.isArray(raw))return normalizeSlides(raw)}catch(e){}return builtinSlides.map(x=>({...x,enabled:true,duration:12}))}
+    function normalizeSlides(raw){
+      const list=[];const seen=new Set();
+      for(const entry of raw.slice(0,75)){
+        if(!entry || typeof entry!=='object')continue;
+        const builtin=builtinSlides.find(b=>b.id===entry.id);
+        if(builtin){if(seen.has(builtin.id))continue;seen.add(builtin.id);list.push({...builtin,enabled:entry.enabled!==false,duration:Math.max(3,Math.min(300,Number(entry.duration)||12))});continue}
+        if(entry.type!=='custom'||!/^custom-[a-z0-9-]+$/.test(entry.id||'')||seen.has(entry.id))continue;
+        seen.add(entry.id);
+        list.push({id:entry.id,type:'custom',kind:['sponsor','advert','event','custom'].includes(entry.kind)?entry.kind:'custom',enabled:entry.enabled!==false,duration:Math.max(3,Math.min(300,Number(entry.duration)||15)),title:String(entry.title||'').slice(0,180),subtitle:String(entry.subtitle||'').slice(0,500),details:String(entry.details||'').slice(0,500),cta:String(entry.cta||'').slice(0,100),url:String(entry.url||'').slice(0,2000),image:typeof entry.image==='string'&&entry.image.startsWith('data:image/')?entry.image:''});
+      }
+      for(const b of builtinSlides){if(!seen.has(b.id))list.push({...b,enabled:true,duration:12})}
+      return list;
+    }
+    let managedSlides=readSlides();
+    // Event playlists are local to this browser. These do not change the regular slide manager.
+    const eventModeKey='arenaEventModeV11';
+    const presetDefinitions=[
+      {id:'football',name:'Football Screening',subtitle:'Matchday live at British Arena',ids:['count-instagram','cta-instagram','newsletter','count-facebook','cta-facebook']},
+      {id:'esports',name:'Esports Tournament',subtitle:'Gaming, esports and community',ids:['count-instagram','cta-instagram','newsletter','count-facebook','cta-facebook']},
+      {id:'corporate',name:'Corporate / Venue Hire',subtitle:'Sponsors, partners and venue news',ids:['newsletter','count-instagram','cta-instagram','count-facebook','cta-facebook']}
+    ];
+    function sanitiseEventMode(raw){
+      const defs=presetDefinitions.map(x=>({...x,ids:[...x.ids]}));
+      const list=Array.isArray(raw?.playlists)?raw.playlists.slice(0,30):[];
+      const playlists=[];const seen=new Set();
+      for(const item of [...list,...defs]){
+        if(!item||typeof item!=='object'||typeof item.id!=='string'||!(/^[a-z0-9-]{1,80}$/).test(item.id)||seen.has(item.id))continue;
+        seen.add(item.id);
+        playlists.push({id:item.id,name:String(item.name||'Event').slice(0,90),subtitle:String(item.subtitle||'').slice(0,160),ids:Array.isArray(item.ids)?[...new Set(item.ids.filter(id=>typeof id==='string'))].slice(0,75):[]});
+      }
+      const selected=playlists.some(x=>x.id===raw?.selected)?raw.selected:'football';
+      return {enabled:raw?.enabled===true,selected,playlists};
+    }
+    function readEventMode(){try{return sanitiseEventMode(JSON.parse(localStorage.getItem(eventModeKey)||'null'))}catch(e){return sanitiseEventMode(null)}}
+    let eventMode=readEventMode();
+    function activeEventPlaylist(){return eventMode.playlists.find(p=>p.id===eventMode.selected)||eventMode.playlists[0]}
+    function getPresentationSlides(){
+      const normal=getActiveSlides();if(!eventMode.enabled)return normal;
+      const ids=activeEventPlaylist()?.ids||[];
+      const selected=ids.map(id=>managedSlides.find(s=>s.id===id)).filter(Boolean);
+      return selected.length?selected:normal;
+    }
+    function updateEventBanner(){
+      const banner=$('eventModeBanner');if(!banner)return;
+      banner.style.display=eventMode.enabled?'block':'none';
+      if(eventMode.enabled)banner.textContent='EVENT MODE  /  '+(activeEventPlaylist()?.name||'Event');
+    }
+    function saveEventMode(){try{localStorage.setItem(eventModeKey,JSON.stringify(eventMode));setTimeout(()=>window.arenaCloudSync?.(),0);return true}catch(e){alert('Could not save event playlists');return false}}
+    function refreshEventPlayback(){index=0;previewNewsletterActive=false;updateEventBanner();render();startRotation()}
+    function setEventModeEnabled(value){eventMode.enabled=!!value;saveEventMode();renderEventModeEditor();refreshEventPlayback()}
+    function selectEventPlaylist(id){if(!eventMode.playlists.some(x=>x.id===id))return;eventMode.selected=id;saveEventMode();renderEventModeEditor();refreshEventPlayback()}
+    function createEventPlaylist(){
+      const name=prompt('Name your event playlist (e.g. Sunderland Matchday)');if(!name||!name.trim())return;
+      const id='event-'+Date.now().toString(36);eventMode.playlists.push({id,name:name.trim().slice(0,90),subtitle:'',ids:managedSlides.filter(s=>s.enabled).map(s=>s.id)});
+      eventMode.selected=id;renderEventModeEditor();saveEventMode();refreshEventPlayback();
+    }
+    function cloneEventPlaylist(){const original=activeEventPlaylist();if(!original)return;
+      const copy={...original,id:'event-'+Date.now().toString(36),name:(original.name+' Copy').slice(0,90),ids:[...original.ids]};eventMode.playlists.push(copy);eventMode.selected=copy.id;renderEventModeEditor();saveEventMode();refreshEventPlayback()}
+    function deleteEventPlaylist(){if(['football','esports','corporate'].includes(eventMode.selected)){alert('Built-in presets cannot be deleted. You can edit their slides, or duplicate them.');return}
+      if(!confirm('Delete this event playlist?'))return;eventMode.playlists=eventMode.playlists.filter(x=>x.id!==eventMode.selected);eventMode.selected='football';renderEventModeEditor();saveEventMode();refreshEventPlayback()}
+    function renderEventModeEditor(){
+      const picker=$('eventPlaylist'),host=$('eventPlaylistEditor'),status=$('eventModeStatus');if(!picker||!host)return;
+      picker.replaceChildren();for(const pl of eventMode.playlists){const option=document.createElement('option');option.value=pl.id;option.textContent=pl.name;picker.append(option)}picker.value=eventMode.selected;
+      $('eventModeEnabled').checked=eventMode.enabled;
+      status.textContent=eventMode.enabled?'Active on this screen: '+activeEventPlaylist().name:'Normal rotation active';
+      host.replaceChildren();const pl=activeEventPlaylist();if(!pl)return;
+      const title=document.createElement('label');title.textContent='Event name';const input=document.createElement('input');input.value=pl.name;input.maxLength=90;input.oninput=()=>{pl.name=input.value;picker.selectedOptions[0].textContent=pl.name;updateEventBanner()};title.append(input);host.append(title);
+      const sub=document.createElement('label');sub.textContent='Event subtitle';const subtitle=document.createElement('input');subtitle.value=pl.subtitle;subtitle.maxLength=160;subtitle.oninput=()=>{pl.subtitle=subtitle.value};sub.append(subtitle);host.append(sub);
+      const label=document.createElement('strong');label.textContent='Slides in this event (in playback order)';host.append(label);
+      const list=document.createElement('div');list.className='event-playlist-list';host.append(list);
+      const ids=new Set(pl.ids);
+      for(const slide of managedSlides){const row=document.createElement('label');row.className='event-playlist-row';
+        const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=ids.has(slide.id);
+        checkbox.onchange=()=>{if(checkbox.checked){if(!pl.ids.includes(slide.id))pl.ids.push(slide.id)}else pl.ids=pl.ids.filter(id=>id!==slide.id);saveEventMode();refreshEventPlayback()};
+        const text=document.createElement('span');text.textContent=labelForSlide(slide)+' · '+slide.duration+'s';row.append(checkbox,text);
+        if(checkbox.checked){for(const [symbol,delta] of [['↑',-1],['↓',1]]){const button=document.createElement('button');button.type='button';button.textContent=symbol;button.style.width='30px';button.style.margin='0';button.onclick=(e)=>{e.preventDefault();const idx=pl.ids.indexOf(slide.id);const dest=idx+delta;if(dest<0||dest>=pl.ids.length)return;[pl.ids[idx],pl.ids[dest]]=[pl.ids[dest],pl.ids[idx]];renderEventModeEditor();saveEventMode();refreshEventPlayback()};row.append(button)}}
+        list.append(row);
+      }
+      const note=document.createElement('p');note.className='control-note';note.textContent='Create sponsor, advert or upcoming-event slides in the Slides tab first, then include them here. Event Mode plays selected slides even when disabled in normal rotation.';host.append(note);
+    }
+
+    function getActiveSlides(){let list=managedSlides.filter(s=>s.enabled);if(cfg.mode!=='both')list=list.filter(s=>!s.channel||s.channel===cfg.mode);if(!cfg.newsletterEnabled)list=list.filter(s=>s.type!=='newsletter');return list.length?list:[builtinSlides[0]]}
+    function saveManagedSlides(){try{localStorage.setItem(slideKey,JSON.stringify(managedSlides));setTimeout(()=>window.arenaCloudSync?.(),0);$('editorSaveNote').textContent='Slides and editor settings saved.'}catch(e){alert('Could not save slides. Images may be too large for browser storage. Try smaller images or export a backup.')}}
+    function labelForSlide(slide){return slide.type==='custom'?(slide.title||({sponsor:'New sponsor',advert:'New advert',event:'Upcoming event',custom:'Custom slide'}[slide.kind])):slide.label}
+    function slideControl(container,label,field,value,kind='text'){
+      const l=document.createElement('label');l.textContent=label;
+      const el=document.createElement(kind==='textarea'?'textarea':'input');
+      if(kind==='textarea')el.rows=2;else el.type=kind;
+      if(kind==='number'){el.min=3;el.max=300;el.step=1}
+      if(kind==='checkbox')el.checked=Boolean(value);else el.value=value||'';
+      l.append(el);container.append(l);return el;
+    }
+    function renderSlideManager(){
+      const root=$('slideOrderList');if(!root)return;root.replaceChildren();
+      managedSlides.forEach((slide,pos)=>{
+        const el=document.createElement('div');el.className='slide-editor-item';el.draggable=true;
+        el.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',slide.id);e.dataTransfer.effectAllowed='move'});
+        el.addEventListener('dragover',e=>e.preventDefault());
+        el.addEventListener('drop',e=>{e.preventDefault();const from=managedSlides.findIndex(x=>x.id===e.dataTransfer.getData('text/plain'));if(from<0||from===pos)return;const [item]=managedSlides.splice(from,1);managedSlides.splice(pos,0,item);refreshSlides()});
+        const head=document.createElement('div');head.className='slide-item-header';
+        const grab=document.createElement('span');grab.textContent='☰';grab.title='Drag to reorder';head.append(grab);
+        const name=document.createElement('strong');name.textContent=labelForSlide(slide);head.append(name);
+        for(const [label,step] of [['↑',-1],['↓',1]]){const btn=document.createElement('button');btn.type='button';btn.textContent=label;btn.disabled=pos+step<0||pos+step>=managedSlides.length;btn.onclick=()=>{const other=pos+step;[managedSlides[pos],managedSlides[other]]=[managedSlides[other],managedSlides[pos]];refreshSlides()};head.append(btn)}
+        if(slide.type==='custom'){const remove=document.createElement('button');remove.textContent='✕';remove.title='Remove slide';remove.onclick=()=>{if(confirm('Remove this slide?')){managedSlides.splice(pos,1);refreshSlides()}};head.append(remove)}
+        el.append(head);const row=document.createElement('div');row.className='slide-field-row';
+        const enabled=slideControl(row,'Enabled','enabled',slide.enabled,'checkbox');enabled.onchange=()=>{slide.enabled=enabled.checked;refreshSlidePreviewOptions();sendPreviewState()};
+        const duration=slideControl(row,'Duration (seconds)','duration',slide.duration,'number');duration.oninput=()=>{slide.duration=Math.max(3,Math.min(300,Number(duration.value)||12));sendPreviewState()};el.append(row);
+        if(slide.type==='custom'){
+          const details=document.createElement('details');details.open=Boolean(window.editingSlide===slide.id);
+          const summary=document.createElement('summary');summary.textContent='Edit slide content';details.append(summary);
+          details.addEventListener('toggle',()=>{if(details.open)window.editingSlide=slide.id});
+          for(const [field,label,kind] of [['title','Headline','text'],['subtitle','Description','textarea'],['details','Extra details / date / location','textarea'],['cta','Call to action label','text'],['url','Link URL (optional QR code)','url']]){
+            const input=slideControl(details,label,field,slide[field],kind);input.oninput=()=>{slide[field]=input.value;name.textContent=labelForSlide(slide);sendPreviewState();refreshSlidePreviewOptions(false)};
+          }
+          const imageLabel=document.createElement('label');imageLabel.textContent='Slide image (JPG, PNG or WebP)';const input=document.createElement('input');input.type='file';input.accept='image/png,image/jpeg,image/webp';imageLabel.append(input);details.append(imageLabel);
+          input.onchange=async()=>{if(!input.files[0])return;try{slide.image=await resizeSlideImage(input.files[0]);sendPreviewState()}catch(err){alert('Unable to load image: '+err.message)}};
+          const clear=document.createElement('button');clear.textContent='Remove image';clear.type='button';clear.onclick=()=>{slide.image='';input.value='';sendPreviewState()};details.append(clear);
+          el.append(details);
+        }
+        root.append(el);
+      });
+    }
+    function resizeSlideImage(file){return new Promise((resolve,reject)=>{
+      if(file.size>15000000){reject(new Error('Image exceeds 15 MB'));return}
+      const img=new Image(),url=URL.createObjectURL(file);
+      img.onload=()=>{const scale=Math.min(1,1400/img.width,1000/img.height);const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);URL.revokeObjectURL(url);resolve(canvas.toDataURL('image/jpeg',.78))};
+      img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Invalid image'))};img.src=url;
+    })}
+    function addCustomSlide(kind){const id='custom-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);const copy={sponsor:['OUR SPONSOR','Supporting British Arena','Discover our partners'],advert:['YOUR MESSAGE HERE','Promote your brand at British Arena','Find out more'],event:['UPCOMING AT THE ARENA','Event date and details','Book now'],custom:['CUSTOM SLIDE','Add your message','']};const text=copy[kind];managedSlides.push({id,type:'custom',kind,enabled:true,duration:15,title:text[0],subtitle:text[1],details:'',cta:text[2],url:'',image:''});window.editingSlide=id;refreshSlides();setEditorPreviewSlide(id)}
+    function refreshSlidePreviewOptions(update=true){const select=$('editorPreviewSlide');const selected=previewSlide;select.replaceChildren();for(const slide of managedSlides){const option=document.createElement('option');option.value=slide.id;option.textContent=labelForSlide(slide);select.append(option)}if(managedSlides.some(s=>s.id===selected))select.value=selected;else{previewSlide=managedSlides[0]?.id||'count-instagram';select.value=previewSlide}if(update)sendPreviewState()}
+    function refreshSlides(){renderSlideManager();refreshSlidePreviewOptions();renderEventModeEditor();}
+    function exportSlideBackup(){const blob=new Blob([JSON.stringify({version:10,slides:managedSlides},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='british-arena-slides-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)}
+    async function importSlideBackup(input){const f=input.files?.[0];if(!f)return;try{const parsed=JSON.parse(await f.text());if(!Array.isArray(parsed.slides))throw Error('Invalid slide backup');managedSlides=normalizeSlides(parsed.slides);refreshSlides();alert('Slides imported. Click Save settings to keep them.')}catch(e){alert(e.message)}input.value=''}
+    function renderCustomSlide(slide){$('customType').textContent=({sponsor:'OUR PARTNERS',advert:'ADVERTISEMENT',event:'UPCOMING EVENT',custom:'BRITISH ARENA'}[slide.kind]||'BRITISH ARENA');$('customTitle').textContent=slide.title||'BRITISH ARENA';$('customSubtitle').textContent=slide.subtitle||'';$('customDetails').textContent=slide.details||'';$('customDetails').style.display=slide.details?'block':'none';$('customCTA').textContent=slide.cta||'';$('customCTA').style.display=slide.cta?'block':'none';$('customSlideCard').classList.toggle('no-image',!slide.image);$('customImage').src=slide.image||'';const valid=validSignupUrl(slide.url||'');$('customQrWrap').style.display=valid?'flex':'none';$('customQr').src=valid?qrUrl(slide.url):''}
+    let activeEditorTab='branding';
+    let previewSlide='count-instagram';
+    function selectEditorTab(tab){
+      activeEditorTab=tab;
+      for(const name of ['branding','cards','animations','slides','events','integrations']){
+        const el=$('editor-'+name);if(el)el.classList.toggle('active',name===tab);
+        const button=document.querySelector('.editor-tab[data-tab="'+name+'"]');if(button)button.classList.toggle('active',name===tab);
+      }
+      sendPreviewState();
+    }
+    function setEditorPreviewSlide(slide){previewSlide=slide;$('editorPreviewSlide').value=slide;sendPreviewState()}
+    function draftEditorState(){
+      const c={...cfg}, b={...brand}, cp={...cardCopy}, an={...animations}, details=JSON.parse(JSON.stringify(eventDetails));
+      for(const k of Object.keys(defaults)){
+        const el=$(k);c[k]=k==='newsletterEnabled'?el.checked:['igTarget','fbTarget','rotation'].includes(k)?Math.max(1,Number(el.value)||defaults[k]):el.value;
+      }
+      for(const k of Object.keys(brandDefaults)) b[k]=$(k).value;
+      for(const k of Object.keys(copyDefaults))cp[k]=$(k).value;
+      for(const ch of Object.keys(animationDefaults)){
+        an[ch]=$(ch+'Animation').value;
+        for(const field of ['duration','size','title','message']){
+          const el=$(ch+'Detail'+field);if(!el)continue;
+          details[ch][field]=['duration','size'].includes(field)?Number(el.value)||eventDetails[ch][field]:el.value;
+        }
+      }
+      return {cfg:c,brand:b,cardCopy:cp,animations:an,eventDetails:details,logo,slide:previewSlide,managedSlides};
+    }
+    function sendPreviewAction(action,channel){
+      const frame=$('editorPreviewFrame');if(!frame?.contentWindow)return;
+      frame.contentWindow.postMessage({type:'arena-editor-action',action,channel},location.origin);
+    }
+    function sendPreviewState(){
+      const frame=$('editorPreviewFrame');
+      if(frame&&frame.contentWindow)frame.contentWindow.postMessage({type:'arena-editor-preview',state:draftEditorState()},location.origin);
+    }
+    function initVisualEditor(){
+      const integration=$('editor-integrations'),extra=$('editor-integrations-extra');
+      integration.append(...Array.from(extra.children));extra.remove();
+      $('panel').addEventListener('input',e=>{if(e.target.closest('.editor-sidebar'))sendPreviewState()});
+      $('panel').addEventListener('change',e=>{if(e.target.closest('.editor-sidebar'))sendPreviewState()});
+      $('editorPreviewFrame').addEventListener('load',sendPreviewState);
+      renderSlideManager();refreshSlidePreviewOptions(false);renderEventModeEditor();selectEditorTab('branding');
+    }
+    window.addEventListener('message',e=>{
+      if(e.origin!==location.origin||!document.body.classList.contains('editor-preview-only'))return;
+      if(e.data?.type==='arena-editor-action'){
+        if(e.data.action==='event')playEventAnimation(e.data.channel,1);
+        else if(e.data.action==='milestone')showMilestone(e.data.channel,cfg.igTarget);
+        else if(e.data.action==='football')rollFootball(e.data.channel);
+        return;
+      }
+      if(e.data?.type!=='arena-editor-preview')return;
+      const state=e.data.state;if(!state)return;
+      cfg=state.cfg;brand=state.brand;cardCopy=state.cardCopy;animations=state.animations;eventDetails=state.eventDetails;logo=state.logo;managedSlides=state.managedSlides||managedSlides;
+      applyBrand();
+      const slide=state.slide||'count-instagram';
+      previewNewsletterActive=slide==='newsletter';window.editorSlideId=slide;
+      if(slide!=='newsletter'){cfg.mode='both';const pos=managedSlides.findIndex(s=>s.id===slide);index=Math.max(0,pos)}
+      render();
+    });
+    if(new URLSearchParams(location.search).has('editor-preview')){
+      document.body.classList.add('editor-preview-only');
+    }
+    if(location.pathname.startsWith('/display'))document.body.classList.add('cloud-player');
+    loadForm();
+    if(!document.body.classList.contains("editor-preview-only") && location.pathname.startsWith("/admin"))initVisualEditor();
+    updateEventBanner();
+    render();
+    poll();
+    setInterval(poll,15000);
+    if(!document.body.classList.contains('editor-preview-only')) startRotation();
+    if(!document.body.classList.contains('editor-preview-only')){pollNewsletterEvents();setInterval(pollNewsletterEvents,3000)}
+    window.arenaCloudSync=async function(){
+      if(!location.pathname.startsWith('/admin'))return;
+      const settings={};
+      for(const key of ['arenaSettings','arenaEventAnimations','arenaAnimationDetails','arenaCardCopy','arenaBrand','arenaLogo','arenaSlidesV10','arenaEventModeV11']){
+        const value=localStorage.getItem(key);if(value!==null)settings[key]=value;
+      }
+      try{
+        const result=await fetch('/api/config',{method:'PUT',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({settings})});
+        if(!result.ok)throw Error('Save failed: '+result.status);
+        const data=await result.json();window.arenaCloudVersion=data.version;
+        const status=document.getElementById('editorSaveNote');if(status)status.textContent='Saved to cloud. The Arena TV will update automatically.';
+      }catch(e){alert('Cloud save failed. Your browser still has a local copy. '+e.message)}
+    };
+    if(location.pathname.startsWith('/display')){
+      document.querySelector('.settings')?.remove();
+      setInterval(async()=>{
+        try{
+          const r=await fetch('/api/config'+location.search,{cache:'no-store'});
+          if(!r.ok)return;
+          const state=await r.json();if(state.version!==window.arenaCloudVersion){
+            Object.entries(state.settings||{}).forEach(([k,v])=>localStorage.setItem(k,v));location.reload();
+          }
+        }catch(e){}
+      },10000);
+    }
+  });
+  </script>
+</body>
+</html>
