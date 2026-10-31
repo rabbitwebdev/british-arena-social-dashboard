@@ -12,7 +12,7 @@ ADMIN_PASSWORD=''
 DISPLAY_KEY=''
 SESSION_SECRET=''
 DB_PATH=None
-CONFIG_KEYS={'arenaSettings','arenaEventAnimations','arenaAnimationDetails','arenaCardCopy','arenaBrand','arenaLogo','arenaSlidesV10','arenaEventModeV11'}
+CONFIG_KEYS={'arenaSettings','arenaEventAnimations','arenaAnimationDetails','arenaCardCopy','arenaBrand','arenaLogo','arenaSlidesV10','arenaEventModeV11','arenaDisplayStyle'}
 
 def db_init():
     global DB_PATH

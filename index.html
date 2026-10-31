@@ -465,7 +465,25 @@
     .slide-editor-item textarea{width:100%;background:#091b49;color:white;border:1px solid #6f88b6;padding:10px;resize:vertical}
     .editor-tab{min-height:40px}
     @media(max-width:900px){.custom-slide{grid-template-columns:1fr}.custom-media{min-height:22vh;max-height:32vh}.custom-copy{padding:20px}.custom-copy h1{font-size:clamp(29px,6vw,55px)}}
-  </style>
+  
+    /* v14 animation studio */
+    #count{font-size:calc(clamp(66px,10vw,210px) * var(--v14-counter-scale,1))}
+    .v14-effect-layer{position:fixed;inset:0;pointer-events:none;z-index:1000;overflow:hidden;opacity:var(--v14-opacity,.85)}
+    .v14-particle{position:absolute;left:var(--x);bottom:0;font-size:clamp(18px,3vw,46px);color:var(--v14-accent-local,#ef233c);animation:v14-rise var(--v14-life,4s) ease-out both;animation-delay:var(--delay,0s);will-change:transform,opacity}
+    .v14-confetti .v14-particle{font-size:clamp(12px,1.6vw,25px)}
+    .v14-fireworks .v14-particle{top:50%;bottom:auto;left:50%;font-size:clamp(25px,3.5vw,55px);animation-name:v14-burst}
+    .v14-wave .v14-primary{position:absolute;inset:12%;border:14px solid var(--v14-accent-local,#ef233c);box-shadow:0 0 50px var(--v14-accent-local,#ef233c);animation:v14-wave var(--v14-life,4s) ease-out both}
+    .v14-spotlight .v14-primary{position:absolute;top:-25%;bottom:-25%;width:28vw;left:-35vw;transform:rotate(18deg);background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--v14-accent-local) 55%,transparent),transparent);animation:v14-spotlight var(--v14-life,4s) ease-in-out both}
+    .v14-bounce .v14-primary{position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);font-size:clamp(100px,18vw,280px);font-weight:1000;color:#fff;text-shadow:0 0 50px var(--v14-accent-local);animation:v14-bounce var(--v14-life,4s) ease-out both}
+    body[data-animation-position=top] .v14-bounce .v14-primary{top:23%}
+    body[data-animation-position=bottom] .v14-bounce .v14-primary{top:72%}
+    @keyframes v14-rise{0%{transform:translate(0,20vh) rotate(0);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translate(var(--dx),var(--dy)) rotate(var(--spin));opacity:0}}
+    @keyframes v14-burst{0%{opacity:0;transform:translate(0,0) scale(.2)}20%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(1.8)}}
+    @keyframes v14-wave{0%{transform:scale(.15);opacity:0}25%{opacity:1}100%{transform:scale(2.2);opacity:0}}
+    @keyframes v14-spotlight{0%{transform:translateX(0) rotate(18deg);opacity:0}25%{opacity:1}85%{opacity:1}100%{transform:translateX(170vw) rotate(18deg);opacity:0}}
+    @keyframes v14-bounce{0%{transform:translate(-50%,-80%) scale(.2);opacity:0}25%{transform:translate(-50%,-50%) scale(1.22);opacity:1}40%{transform:translate(-50%,-50%) scale(.93)}60%{transform:translate(-50%,-50%) scale(1)}100%{transform:translate(-50%,-50%) scale(.9);opacity:0}}
+    @media(prefers-reduced-motion:reduce){body:not([data-motion-mode=full]) .v14-effect-layer{display:none}}
+</style>
 </head>
 <body>
   <main>
@@ -627,6 +645,8 @@
     </div>
       </div><div class="editor-section" id="editor-animations">
     <div class="brand-controls" id="animationSettings">
+      <strong>Animation Studio v14</strong>
+      <p class="control-note">Follower and subscriber effects, with separate previews for likes/reactions. Like effects run from manual preview or a future authenticated integration, not automatically from Meta follower data.</p>
       <strong>Event animations</strong>
       <p class="control-note">Choose what happens for each event. Changes apply to simulated data and later live connections.</p>
       <label>New Instagram follower<select id="instagramAnimation"></select></label>
@@ -635,12 +655,22 @@
       <button class="secondary-button" type="button" onclick="previewEvent('facebook')">Preview Facebook animation</button>
       <label>New newsletter subscriber<select id="newsletterAnimation"></select></label>
       <button class="secondary-button" type="button" onclick="previewEvent('newsletter')">Preview newsletter animation</button>
+      <label>Like / reaction celebration<select id="likesAnimation"></select></label>
+      <button class="secondary-button" type="button" onclick="previewEvent('likes')">Preview new like / reaction</button>
+      <div class="brand-controls"><strong>Display effects &amp; styling</strong>
+        <label>Counter typography scale <input id="styleCounterScale" type="range" min="70" max="150" step="5"></label>
+        <label>Celebration overlay opacity <input id="styleOverlayOpacity" type="range" min="30" max="100" step="5"></label>
+        <label>Animated accent colour <input id="styleAccentColor" type="color"></label>
+        <label>Animation intensity<select id="styleIntensity"><option value="subtle">Subtle</option><option value="standard">Standard</option><option value="bold">Bold</option></select></label>
+        <label>Motion preference<select id="styleMotion"><option value="auto">Follow device accessibility settings</option><option value="full">Full animation</option><option value="reduced">Reduced motion</option></select></label>
+        <label>Celebration position<select id="stylePosition"><option value="center">Centre</option><option value="top">Top</option><option value="bottom">Bottom</option></select></label>
+      </div>
       <div class="brand-controls">
         <strong>Animation timing, football size and celebration copy</strong>
         <p class="control-note">Set these independently for each event. Duration is in seconds; football size is in pixels.</p>
         <div id="eventDetailControls"></div>
       </div>
-      <p class="control-note">Options: rolling football, football into goal, follower pop and spark burst, or none. Goal milestone celebrations remain independent.</p>
+      <p class="control-note">Nine animation effects plus no animation. Preview each one before publishing. Goal milestone celebrations remain independent.</p>
     </div>
       </div><div class="editor-section" id="editor-slides">
         <div class="brand-controls"><strong>Slide manager</strong><p class="control-note">Drag the handles to reorder screens, or use ↑ and ↓. Disable a slide to hide it. Each slide has its own duration.</p>
@@ -715,7 +745,8 @@ window.arenaCloudReady=(async()=>{
     let cardCopy={...copyDefaults,...JSON.parse(localStorage.getItem('arenaCardCopy')||'{}')};
     const detailDefaults={instagram:{duration:4.4,size:76,title:'New Instagram follower!',message:'Another supporter joins the Arena.'},
       facebook:{duration:4.4,size:76,title:'New Facebook follower!',message:'Another supporter joins the Arena.'},
-      newsletter:{duration:5.5,size:80,title:'New subscriber!',message:'Another supporter joins the Arena.'}};
+      newsletter:{duration:5.5,size:80,title:'New subscriber!',message:'Another supporter joins the Arena.'},
+      likes:{duration:3.8,size:70,title:'New reaction!',message:'Thanks for showing British Arena some love!'}};
     let eventDetails={...detailDefaults,...JSON.parse(localStorage.getItem('arenaAnimationDetails')||'{}')};
     for(const ch of Object.keys(detailDefaults))eventDetails[ch]={...detailDefaults[ch],...(eventDetails[ch]||{})};
     function eventDetailsForm(){
@@ -748,8 +779,8 @@ window.arenaCloudReady=(async()=>{
     let index=0,last={instagram:null,facebook:null};
     let event=JSON.parse(localStorage.getItem('arenaEvent')||'null');
     let flashTimer, celebrationTimer, newsletterTimer;
-    const animationOptions=[['roll','Rolling football across screen'],['goal','Football into goal'],['pop','Follower pop + sparks'],['none','No animation']];
-    const animationDefaults={instagram:'roll',facebook:'roll',newsletter:'goal'};
+    const animationOptions=[['roll','Rolling football across screen'],['goal','Football into goal'],['pop','Follower pop + sparks'],['confetti','Confetti celebration'],['hearts','Floating hearts / reactions'],['wave','Arena pulse wave'],['spotlight','Spotlight sweep'],['fireworks','Firework sparks'],['bounce','Big bouncing counter'],['none','No animation']];
+    const animationDefaults={instagram:'roll',facebook:'roll',newsletter:'goal',likes:'hearts'};
     let animations={...animationDefaults,...JSON.parse(localStorage.getItem('arenaEventAnimations')||'{}')};
     for(const key of Object.keys(animationDefaults))if(!animationOptions.some(([id])=>id===animations[key]))animations[key]=animationDefaults[key];
     let newsletterEventCursor=0;
@@ -758,6 +789,23 @@ window.arenaCloudReady=(async()=>{
     const milestoneSeen=JSON.parse(localStorage.getItem('arenaMilestonesSeen')||'{}');
     let previousCounts={instagram:null,facebook:null};
     const brandDefaults={brandBlue:'#2f6bff',brandRed:'#ef233c',brandFont:'arena'};
+    const displayStyleDefaults={styleCounterScale:100,styleOverlayOpacity:85,styleAccentColor:'#ef233c',styleIntensity:'standard',styleMotion:'auto',stylePosition:'center'};
+    let displayStyle={...displayStyleDefaults,...JSON.parse(localStorage.getItem('arenaDisplayStyle')||'{}')};
+    function applyDisplayStyle(){
+      const root=document.documentElement;
+      root.style.setProperty('--v14-counter-scale',String(Math.min(150,Math.max(70,Number(displayStyle.styleCounterScale)||100))/100));
+      root.style.setProperty('--v14-opacity',String(Math.min(100,Math.max(30,Number(displayStyle.styleOverlayOpacity)||85))/100));
+      root.style.setProperty('--v14-accent',displayStyle.styleAccentColor);
+      document.body.dataset.animationIntensity=displayStyle.styleIntensity;
+      document.body.dataset.animationPosition=displayStyle.stylePosition;
+      document.body.dataset.motionMode=displayStyle.styleMotion;
+    }
+    function readDisplayStyle(){
+      for(const k of Object.keys(displayStyleDefaults)){
+        const el=$(k);if(el)displayStyle[k]=['styleCounterScale','styleOverlayOpacity'].includes(k)?Number(el.value):el.value;
+      }
+      localStorage.setItem('arenaDisplayStyle',JSON.stringify(displayStyle));applyDisplayStyle();
+    }
     let brand={...brandDefaults,...JSON.parse(localStorage.getItem('arenaBrand')||'{}')};
     let logo=localStorage.getItem('arenaLogo')||'';
 
@@ -774,7 +822,7 @@ window.arenaCloudReady=(async()=>{
       }
     }
     function previewEvent(channel){sendPreviewState();sendPreviewAction('event',channel);}
-    function loadForm(){ for(const k of Object.keys(defaults)) {if(k==='newsletterEnabled') $(k).checked=Boolean(cfg[k]); else $(k).value=cfg[k];} for(const k of Object.keys(brandDefaults)) $(k).value=brand[k]; loadAnimationForm(); eventDetailsForm(); for(const k of Object.keys(copyDefaults))$(k).value=cardCopy[k]; applyBrand(); }
+    function loadForm(){ for(const k of Object.keys(defaults)) {if(k==='newsletterEnabled') $(k).checked=Boolean(cfg[k]); else $(k).value=cfg[k];} for(const k of Object.keys(brandDefaults)) $(k).value=brand[k]; loadAnimationForm(); eventDetailsForm(); for(const k of Object.keys(displayStyleDefaults)){if($(k))$(k).value=displayStyle[k]}applyDisplayStyle(); for(const k of Object.keys(copyDefaults))$(k).value=cardCopy[k]; applyBrand(); }
     function applyBrand(){
       document.documentElement.style.setProperty('--arena-blue',brand.brandBlue);
       document.documentElement.style.setProperty('--arena-red',brand.brandRed);
@@ -821,7 +869,7 @@ window.arenaCloudReady=(async()=>{
       for(const channel of Object.keys(animationDefaults))animations[channel]=$(channel+'Animation').value;
       localStorage.setItem('arenaEventAnimations',JSON.stringify(animations));
       readEventDetails();
-      localStorage.setItem('arenaAnimationDetails',JSON.stringify(eventDetails));
+      localStorage.setItem('arenaAnimationDetails',JSON.stringify(eventDetails));readDisplayStyle();
       for(const k of Object.keys(copyDefaults))cardCopy[k]=$(k).value.slice(0,400);
       localStorage.setItem('arenaCardCopy',JSON.stringify(cardCopy));
       for(const k of Object.keys(brandDefaults))brand[k]=$(k).value;
@@ -903,9 +951,43 @@ window.arenaCloudReady=(async()=>{
         newsletterEventCursor=d.latest||newsletterEventCursor;
       }catch(e){/* Optional live webhook is not configured yet. */}
     }
+    function playArenaEffect(kind,channel,amount){
+      const detail=eventDetails[channel]||eventDetails.likes;
+      const seconds=Math.min(12,Math.max(1,Number(detail.duration)||4));
+      if(document.body.dataset.motionMode==='reduced'||(document.body.dataset.motionMode!=='full'&&window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)){
+        const toast=$('gainToast');toast.textContent=(detail.title||'New reaction!');rerunAnimation(toast,'show');return;
+      }
+      const layer=document.createElement('div');layer.className='v14-effect-layer v14-'+kind;
+      layer.style.setProperty('--v14-life',seconds+'s');
+      layer.style.setProperty('--v14-accent-local',displayStyle.styleAccentColor||'#ef233c');
+      const intensity=displayStyle.styleIntensity==='subtle'?.5:displayStyle.styleIntensity==='bold'?1.5:1;
+      const count=Math.ceil((kind==='fireworks'?18:kind==='confetti'?38:kind==='hearts'?16:12)*intensity);
+      if(kind==='wave'||kind==='spotlight'||kind==='bounce'){
+        const target=document.createElement('div');target.className='v14-primary';
+        target.textContent=kind==='bounce'?'+'+fmt(amount):'';
+        layer.appendChild(target);
+      }else{
+        const symbols=kind==='hearts'?['❤️','👍','💙','🔥','✨']:kind==='fireworks'?['✦','✧','★']:['■','◆','●','✦'];
+        for(let i=0;i<count;i++){
+          const bit=document.createElement('span');bit.className='v14-particle';
+          bit.textContent=symbols[i%symbols.length];
+          bit.style.setProperty('--x',(5+Math.random()*90)+'%');
+          bit.style.setProperty('--dx',((Math.random()-.5)*75)+'vw');
+          bit.style.setProperty('--dy',(-20-Math.random()*75)+'vh');
+          bit.style.setProperty('--delay',(Math.random()*.65)+'s');
+          bit.style.setProperty('--spin',((Math.random()-.5)*1000)+'deg');
+          layer.appendChild(bit);
+        }
+      }
+      document.body.appendChild(layer);
+      setTimeout(()=>layer.remove(),(seconds+1)*1000);
+      const toast=$('gainToast');
+      if(toast){toast.textContent=(detail.title||'New reaction!')+' '+(detail.message||'');rerunAnimation(toast,'show')}
+    }
     function playEventAnimation(channel,amount=1){
       const kind=animations[channel]||animationDefaults[channel];
       if(kind==='none')return;
+      if(['confetti','hearts','wave','spotlight','fireworks','bounce'].includes(kind)){playArenaEffect(kind,channel,amount);return;}
       if(kind==='goal'){playNewsletterGoal(channel);return;}
       if(kind==='roll'){for(let i=0;i<Math.min(amount,8);i++)setTimeout(()=>rollFootball(channel),i*220);return;}
       if(kind==='pop'){
@@ -1144,6 +1226,7 @@ window.arenaCloudReady=(async()=>{
       }
       for(const k of Object.keys(brandDefaults)) b[k]=$(k).value;
       for(const k of Object.keys(copyDefaults))cp[k]=$(k).value;
+      const ds={...displayStyle};for(const k of Object.keys(displayStyleDefaults))if($(k))ds[k]=$(k).value;
       for(const ch of Object.keys(animationDefaults)){
         an[ch]=$(ch+'Animation').value;
         for(const field of ['duration','size','title','message']){
@@ -1151,7 +1234,7 @@ window.arenaCloudReady=(async()=>{
           details[ch][field]=['duration','size'].includes(field)?Number(el.value)||eventDetails[ch][field]:el.value;
         }
       }
-      return {cfg:c,brand:b,cardCopy:cp,animations:an,eventDetails:details,logo,slide:previewSlide,managedSlides};
+      return {cfg:c,brand:b,cardCopy:cp,animations:an,eventDetails:details,displayStyle:ds,logo,slide:previewSlide,managedSlides};
     }
     function sendPreviewAction(action,channel){
       const frame=$('editorPreviewFrame');if(!frame?.contentWindow)return;
@@ -1179,7 +1262,7 @@ window.arenaCloudReady=(async()=>{
       }
       if(e.data?.type!=='arena-editor-preview')return;
       const state=e.data.state;if(!state)return;
-      cfg=state.cfg;brand=state.brand;cardCopy=state.cardCopy;animations=state.animations;eventDetails=state.eventDetails;logo=state.logo;managedSlides=state.managedSlides||managedSlides;
+      cfg=state.cfg;brand=state.brand;cardCopy=state.cardCopy;animations=state.animations;eventDetails=state.eventDetails;displayStyle=state.displayStyle||displayStyle;applyDisplayStyle();logo=state.logo;managedSlides=state.managedSlides||managedSlides;
       applyBrand();
       const slide=state.slide||'count-instagram';
       previewNewsletterActive=slide==='newsletter';window.editorSlideId=slide;
@@ -1240,7 +1323,7 @@ window.arenaCloudReady=(async()=>{
     window.arenaCloudSync=async function(){
       if(!location.pathname.startsWith('/admin'))return;
       const settings={};
-      for(const key of ['arenaSettings','arenaEventAnimations','arenaAnimationDetails','arenaCardCopy','arenaBrand','arenaLogo','arenaSlidesV10','arenaEventModeV11']){
+      for(const key of ['arenaSettings','arenaEventAnimations','arenaAnimationDetails','arenaCardCopy','arenaBrand','arenaLogo','arenaSlidesV10','arenaEventModeV11','arenaDisplayStyle']){
         const value=localStorage.getItem(key);if(value!==null)settings[key]=value;
       }
       try{
