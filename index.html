@@ -611,6 +611,14 @@
       <p class="control-note">Upload your official British Arena logo and adjust colours to match your brand guide. Changes save locally in this browser.</p>
     </div>
       </div><div class="editor-section" id="editor-integrations">
+<div class="brand-controls" id="metaConnectPanel">
+      <strong>Facebook &amp; Instagram connection</strong>
+      <p class="control-note">Connect the British Arena Facebook Page and its linked professional Instagram account. No API keys are needed from marketing staff.</p>
+      <div id="metaConnectStatus" class="control-note">Checking connection…</div>
+      <button type="button" id="metaConnectBtn" onclick="connectMeta()">Connect Facebook &amp; Instagram</button>
+      <button type="button" class="secondary-button" id="metaDisconnectBtn" onclick="disconnectMeta()" style="display:none">Disconnect account</button>
+      <p class="control-note" id="metaConnectHelp">An administrator must configure the Meta app once before this button can authorise an account.</p>
+    </div>
     <label>Instagram profile URL<input id="igUrl" placeholder="https://www.instagram.com/yourhandle/"></label>
     <label>Facebook Page URL<input id="fbUrl" placeholder="https://www.facebook.com/yourpage/"></label>
     <label>Instagram target<input id="igTarget" type="number" min="1"></label>
@@ -1350,5 +1358,34 @@ window.arenaCloudReady=(async()=>{
     }
   });
   </script>
-</body>
+<script>
+(function(){
+  let connected=false;
+  async function readMetaStatus(){
+    const el=document.getElementById('metaConnectStatus');
+    if(!el)return;
+    try{
+      const response=await fetch('/api/meta/status',{credentials:'same-origin',cache:'no-store'});
+      if(!response.ok){el.textContent='Sign in to see connection status.';return}
+      const data=await response.json();
+      connected=!!data.connected;
+      document.getElementById('metaConnectBtn').textContent=connected?'Reconnect Facebook & Instagram':'Connect Facebook & Instagram';
+      const me=await fetch('/api/me',{credentials:'same-origin'}).then(r=>r.json());
+      const admin=me.user?.role==='admin';
+      document.getElementById('metaConnectBtn').disabled=!admin;
+      document.getElementById('metaDisconnectBtn').disabled=!admin;
+      document.getElementById('metaDisconnectBtn').style.display=connected?'block':'none';
+      el.textContent=connected?'Connected: '+data.page.name+(data.page.instagram_connected?' · Instagram @'+(data.page.instagram_username||'linked'):' · Instagram not linked'):(data.configured?'Ready to connect.':'Setup required: Meta app credentials must be configured by an administrator.');
+      document.getElementById('metaConnectHelp').textContent=data.configured?'A Facebook account with access to the Page will authorise the connection. Only admins can connect or disconnect.':'Set up one Meta developer app and Railway variables first. Marketing staff do not need to manage API credentials.';
+    }catch(e){el.textContent='Unable to check Meta connection.'}
+  }
+  window.connectMeta=function(){window.location.assign('/api/meta/connect')};
+  window.disconnectMeta=async function(){
+    if(!window.confirm('Disconnect the connected Facebook Page and Instagram account?'))return;
+    const result=await fetch('/api/meta/disconnect',{method:'POST',credentials:'same-origin'});
+    if(!result.ok)alert('Only administrators can disconnect Meta.');else readMetaStatus();
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',readMetaStatus);else readMetaStatus();
+})();
+</script></body>
 </html>

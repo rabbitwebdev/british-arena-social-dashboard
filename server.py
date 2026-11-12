@@ -3,6 +3,7 @@ from collections import deque
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from http.cookies import SimpleCookie
+import meta_connect
 
 ROOT=Path(__file__).resolve().parent
 CACHE={'instagram':None,'facebook':None,'updated':None,'error':None,'demo':False}
@@ -25,6 +26,8 @@ def db_init():
         db.execute('CREATE TABLE IF NOT EXISTS publications (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL, version INTEGER NOT NULL, published_at INTEGER NOT NULL, published_by TEXT NOT NULL)')
         db.execute('CREATE TABLE IF NOT EXISTS published (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL, version INTEGER NOT NULL)')
         db.execute("INSERT OR IGNORE INTO published(id,data,version) VALUES(1,'{}',0)")
+
+    meta_connect.init(DB_PATH)
 
 def db_get():
     with DB_LOCK, sqlite3.connect(DB_PATH) as db:
@@ -103,8 +106,25 @@ def poll_demo():
     rng=random.Random()
     with LOCK:
         CACHE.update(instagram=ig, facebook=fb, updated=int(time.time()), error=None, demo=True)
+    last_meta_check=0
     while True:
         time.sleep(20)
+        now=time.time()
+        if now-last_meta_check>=60:
+            last_meta_check=now
+            try:
+                connected=meta_connect.fetch_counts(DB_PATH)
+                if connected:
+                    with LOCK:
+                        CACHE.update({k:int(v) for k,v in connected.items() if v is not None})
+                        CACHE.update(updated=int(now),demo=False,error=None)
+                    continue
+            except Exception as exc:
+                with LOCK:CACHE['error']='Meta: '+exc.__class__.__name__
+        with LOCK:
+            if not CACHE['demo']:
+                # Do not invent follower events when a live connection is temporarily unavailable.
+                continue
         ig += rng.choice([0,0,0,1,1,2])
         fb += rng.choice([0,0,0,0,1])
         with LOCK:
@@ -116,6 +136,18 @@ def poll_live():
     ids={'instagram':os.getenv('IG_ACCOUNT_ID',''),'facebook':os.getenv('FB_PAGE_ID','')}
     while True:
         errors=[]
+        try:
+            connected=meta_connect.fetch_counts(DB_PATH)
+            if connected:
+                with LOCK:
+                    for channel,count in connected.items():
+                        if count is not None:CACHE[channel]=int(count)
+                    CACHE['updated']=int(time.time())
+                    CACHE['error']=None
+                time.sleep(60)
+                continue
+        except Exception as exc:
+            errors.append('Meta connection: '+exc.__class__.__name__)
         for channel,identifier in ids.items():
             if token and identifier:
                 try:
@@ -213,6 +245,23 @@ class Handler(SimpleHTTPRequestHandler):
         except (ValueError,KeyError,TypeError):return self.json_response(400,{'error':'invalid settings'})
     def do_POST(self):
         path=self.path.split('?')[0]
+        if path=='/api/meta/select':
+            if not self.is_admin() or not self.same_origin():return self.json_response(403,{'error':'admin only'})
+            try:
+                data=json.loads(self.post_body(8192) or b'{}')
+                token=meta_connect.pending_consume(DB_PATH,data['pending'])
+                pages=meta_connect.list_pages(token)
+                selected=next((x for x in pages if x['id']==data['page_id']),None)
+                if not selected:return self.json_response(400,{'error':'Page not available'})
+                meta_connect.save_page(DB_PATH,selected)
+                return self.json_response(200,{'ok':True})
+            except Exception:
+                return self.json_response(400,{'error':'Meta connection failed. Please reconnect and check Page permissions.'})
+        if path=='/api/meta/disconnect':
+            if not self.is_admin() or not self.same_origin():return self.json_response(403,{'error':'admin only'})
+            meta_connect.disconnect(DB_PATH)
+            with LOCK:CACHE.update(demo=True,error=None)
+            return self.json_response(200,{'ok':True})
         if path=='/login':
             if not self.same_origin():return self.send_error(403)
             body=self.post_body(4096)
@@ -276,6 +325,31 @@ class Handler(SimpleHTTPRequestHandler):
             return self.json_response(400,{'error':'invalid json'})
     def do_GET(self):
         path=self.path.split('?')[0]
+        if path=='/api/meta/status':
+            if not self.admin_ok():return self.json_response(403,{'error':'sign in required'})
+            return self.json_response(200,meta_connect.status(DB_PATH))
+        if path=='/api/meta/connect':
+            if not self.is_admin():return self.send_error(403)
+            if not meta_connect.configured():return self.no_cache_html('<h1>Meta setup required</h1><p>Set META_APP_ID, META_APP_SECRET, META_TOKEN_ENCRYPTION_KEY and PUBLIC_ORIGIN in Railway.</p><a href="/admin">Return to dashboard</a>',503)
+            self.send_response(303);self.send_header('Location',meta_connect.authorize_url('admin'));self.send_header('Cache-Control','no-store');self.end_headers();return
+        if path=='/meta/callback':
+            if not self.is_admin():return self.send_error(403)
+            params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            state=params.get('state',[''])[0]
+            code=params.get('code',[''])[0]
+            if not code or not meta_connect.verify_state(state,'admin'):
+                return self.no_cache_html('<h1>Meta authorisation cancelled or expired</h1><p><a href="/admin">Return to dashboard</a></p>',400)
+            try:
+                token=meta_connect.code_to_token(code)
+                pages=meta_connect.list_pages(token)
+                if not pages:return self.no_cache_html('<h1>No Facebook Pages available</h1><p>Use an account with access to the British Arena Page and allow the requested permissions.</p><a href="/admin">Back</a>',400)
+                pending=meta_connect.pending_save(DB_PATH,token)
+                options=''.join('<option value="'+html.escape(x['id'],quote=True)+'">'+html.escape(x['name'])+(' (Instagram: '+html.escape(x['instagram_username'] or 'linked')+')' if x['instagram_id'] else ' (no linked Instagram)')+'</option>' for x in pages)
+                script="""<script>async function connectPage(){const r=await fetch('/api/meta/select',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({pending:NONCE_VALUE,page_id:document.getElementById('page').value})});if(r.ok)location.href='/admin';else document.getElementById('result').textContent=(await r.json()).error}</script>""".replace('NONCE_VALUE',json.dumps(pending))
+                page='<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Choose Facebook Page</title><style>body{background:#0B1F55;color:#fff;font:16px Arial;padding:35px;max-width:600px;margin:auto}select,button{padding:13px;width:100%;margin-top:15px;border-radius:0}</style><h1>Connect British Arena</h1><p>Choose the Facebook Page to connect to this dashboard.</p><select id="page">'+options+'</select><button onclick="connectPage()">Connect selected Page</button><p id="result"></p>'+script+'</html>'
+                return self.no_cache_html(page)
+            except Exception:
+                return self.no_cache_html('<h1>Could not connect Meta</h1><p>Check the Meta app permissions and callback URL.</p><a href="/admin">Back</a>',502)
         if path=='/login':
             return self.no_cache_html("""<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Arena Admin</title><style>body{font:16px Arial;background:#0B1F55;color:white;display:grid;place-items:center;min-height:90vh}form{border:1px solid #789;padding:30px;min-width:280px}input,button{display:block;padding:14px;width:100%;box-sizing:border-box;margin-top:16px;border-radius:0}button{background:#fff;color:#0B1F55;font-weight:bold}</style><form action="/login" method="post"><h1>British Arena</h1><p>Cloud dashboard sign in</p><label>Username<input name="username" value="admin" required></label><label>Password<input name="password" type="password" required autofocus></label><button>Sign in</button></form></html>""")
         if path=='/':
