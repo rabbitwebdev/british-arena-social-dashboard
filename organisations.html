@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Company connections | Social Dashboard</title>
+<style>
+:root{font:15px/1.5 system-ui,sans-serif;color:#14274c;background:#f6f8fc}*{box-sizing:border-box}
+body{max-width:1000px;margin:0 auto;padding:32px 20px}h1,h2{line-height:1.2}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:30px}
+a{color:#0B1F55}button,input,select{font:inherit;border-radius:0;padding:10px 14px;border:1px solid #9aaac2}
+button{background:#0B1F55;color:#fff;cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}
+.card{background:#fff;border:1px solid #d8e0ee;padding:22px;margin:16px 0}
+.row{display:flex;align-items:center;flex-wrap:wrap;gap:10px}.grow{flex:1}
+small,.muted{color:#51627c}.danger{background:#8a2233}#message{min-height:22px}
+</style>
+<header><div><h1>Company connections</h1><p class="muted">Each company authorizes its own Facebook Pages.</p></div><a href="/admin">Back to dashboard</a></header>
+<div id="message" role="status" aria-live="polite"></div>
+<section id="new-company" class="card" hidden>
+<h2>Add company</h2><form id="company-form" class="row">
+<label for="name">Company name</label><input id="name" minlength="2" maxlength="100" required>
+<button>Add company</button></form></section>
+<div id="companies"></div>
+<script>
+"use strict";
+const message=document.getElementById("message");
+const companies=document.getElementById("companies");
+async function api(path,options){
+ const r=await fetch(path,{credentials:"same-origin",...options});
+ const data=await r.json().catch(()=>({}));
+ if(!r.ok)throw new Error(data.error||"Request failed ("+r.status+")");
+ return data;
+}
+function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n}
+function button(text,click,cls){const b=el("button",text,cls);b.type="button";b.addEventListener("click",click);return b}
+async function reload(){
+ companies.replaceChildren();message.textContent="";
+ try{
+ const current=await api("/api/me");
+ if(!current.user)throw new Error("Please sign in first.");
+ document.getElementById("new-company").hidden=current.user.role!=="admin";
+ const items=(await api("/api/organisations")).organisations;
+ if(!items.length)companies.append(el("p","No companies assigned."));
+ for(const org of items){
+   const section=el("section",undefined,"card");
+   section.append(el("h2",org.name),el("p","Your role: "+org.role,"muted"));
+   const body=el("div");section.append(body);
+   const render=async()=>{
+     body.replaceChildren();
+     try{
+       const list=(await api("/api/organisations/"+encodeURIComponent(org.id)+"/meta/connections")).connections;
+       if(!list.length)body.append(el("p","No Facebook Page connected yet.","muted"));
+       for(const p of list){
+         const row=el("div",undefined,"row");
+         row.append(el("strong",p.page_name),el("small",p.instagram_username?"Instagram: @"+p.instagram_username:"No linked Instagram account","grow"));
+         if(org.role!=="viewer")row.append(button("Disconnect",async()=>{
+           if(!confirm("Disconnect "+p.page_name+" from "+org.name+"?"))return;
+           try{
+             await api("/api/organisations/"+encodeURIComponent(org.id)+"/meta/disconnect",{
+               method:"POST",headers:{"Content-Type":"application/json"},
+               body:JSON.stringify({page_id:p.page_id})});
+             await render();
+           }catch(e){message.textContent=e.message}
+         },"danger"));
+         body.append(row);
+       }
+     }catch(e){body.append(el("p",e.message))}
+   };
+   if(org.role!=="viewer"){
+     section.append(button("Connect Facebook / Instagram",()=>{
+       location.assign("/api/organisations/"+encodeURIComponent(org.id)+"/meta/connect");
+     }));
+   }
+   companies.append(section);
+   await render();
+ }
+ }catch(e){message.textContent=e.message}
+}
+document.getElementById("company-form").addEventListener("submit",async e=>{
+ e.preventDefault();
+ try{
+   await api("/api/organisations",{method:"POST",headers:{"Content-Type":"application/json"},
+     body:JSON.stringify({name:document.getElementById("name").value})});
+   document.getElementById("name").value="";
+   await reload();
+ }catch(err){message.textContent=err.message}
+});
+reload();
+</script></html>
