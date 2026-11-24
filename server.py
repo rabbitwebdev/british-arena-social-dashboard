@@ -4,6 +4,7 @@ from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from http.cookies import SimpleCookie
 import meta_connect
+import tenant_meta
 
 ROOT=Path(__file__).resolve().parent
 CACHE={'instagram':None,'facebook':None,'updated':None,'error':None,'demo':False}
@@ -28,6 +29,7 @@ def db_init():
         db.execute("INSERT OR IGNORE INTO published(id,data,version) VALUES(1,'{}',0)")
 
     meta_connect.init(DB_PATH)
+    tenant_meta.init(DB_PATH)
 
 def db_get():
     with DB_LOCK, sqlite3.connect(DB_PATH) as db:
@@ -244,6 +246,7 @@ class Handler(SimpleHTTPRequestHandler):
             return self.json_response(200,{'ok':True,'version':version})
         except (ValueError,KeyError,TypeError):return self.json_response(400,{'error':'invalid settings'})
     def do_POST(self):
+        if tenant_meta.route(self,DB_PATH,'POST'):return
         path=self.path.split('?')[0]
         if path=='/api/meta/select':
             if not self.is_admin() or not self.same_origin():return self.json_response(403,{'error':'admin only'})
@@ -289,6 +292,7 @@ class Handler(SimpleHTTPRequestHandler):
                     if not (3<=len(username)<=48 and all(c.isalnum() or c in '._-' for c in username) and username!='admin' and len(password)>=12 and role in ('marketing','viewer')):raise ValueError()
                     with DB_LOCK,sqlite3.connect(DB_PATH) as db:
                         db.execute('INSERT INTO staff(username,password_hash,role,created_at) VALUES(?,?,?,?)',(username,hash_password(password),role,int(time.time())))
+                    tenant_meta.init(DB_PATH)
                     return self.json_response(201,{'ok':True,'username':username,'role':role})
                 except sqlite3.IntegrityError:return self.json_response(409,{'error':'username exists'})
                 except (ValueError,TypeError,KeyError):return self.json_response(400,{'error':'invalid user'})
@@ -324,6 +328,7 @@ class Handler(SimpleHTTPRequestHandler):
         except (ValueError,UnicodeDecodeError,TypeError):
             return self.json_response(400,{'error':'invalid json'})
     def do_GET(self):
+        if tenant_meta.route(self,DB_PATH,'GET'):return
         path=self.path.split('?')[0]
         if path=='/api/meta/status':
             if not self.admin_ok():return self.json_response(403,{'error':'sign in required'})
