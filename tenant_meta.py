@@ -4,6 +4,8 @@ Phase 1 isolates Meta credentials and organisation membership. Existing display,
 config, and staff administration are legacy single-site and are NOT tenant-safe.
 """
 import html
+import base64
+import hashlib
 import json
 import os
 import secrets
@@ -13,6 +15,14 @@ import urllib.parse
 from contextlib import closing
 
 import meta_connect
+from cryptography.fernet import Fernet
+
+
+def token_cipher():
+    raw=os.environ['META_TOKEN_ENCRYPTION_KEY']
+    if len(raw)<32:
+        raise ValueError('META_TOKEN_ENCRYPTION_KEY must be at least 32 characters')
+    return Fernet(base64.urlsafe_b64encode(hashlib.sha256(raw.encode()).digest()))
 
 ROLES = ("owner", "manager", "viewer")
 CALLBACK = "/api/integrations/meta/callback"
@@ -128,7 +138,7 @@ def consume_state(path, nonce, username):
 
 def store_pending(path, org, username, token):
     nonce=secrets.token_urlsafe(24)
-    ciphertext=meta_connect.cipher().encrypt(token.encode()).decode()
+    ciphertext=token_cipher().encrypt(token.encode()).decode()
     with closing(db_open(path)) as db:
         with db:
             db.execute("DELETE FROM tenant_meta_pending WHERE expires<?",(int(time.time()),))
@@ -145,13 +155,13 @@ def consume_pending(path, nonce, org, username):
             db.execute("DELETE FROM tenant_meta_pending WHERE nonce=?",(nonce,))
     if not row or row[0]!=org or row[1]!=username or row[3]<time.time():
         raise ValueError("Invalid or expired account selection")
-    return meta_connect.cipher().decrypt(row[2].encode()).decode()
+    return token_cipher().decrypt(row[2].encode()).decode()
 
 
 def save_page(path, org, username, page):
     if not page.get("access_token") or not page.get("id"):
         raise ValueError("Page has no granted access token")
-    cipher=meta_connect.cipher().encrypt(page["access_token"].encode()).decode()
+    cipher=token_cipher().encrypt(page["access_token"].encode()).decode()
     with closing(db_open(path)) as db:
         with db:
             db.execute("""INSERT INTO tenant_meta_connections
