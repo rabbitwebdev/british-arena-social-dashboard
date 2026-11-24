@@ -328,6 +328,10 @@ class Handler(SimpleHTTPRequestHandler):
         except (ValueError,UnicodeDecodeError,TypeError):
             return self.json_response(400,{'error':'invalid json'})
     def do_GET(self):
+        if self.path.split('?')[0]=='/organisations':
+            if not self.admin_ok():
+                self.send_response(302);self.send_header('Location','/login');self.end_headers();return
+            return self.no_cache_html((ROOT/'organisations.html').read_text())
         if tenant_meta.route(self,DB_PATH,'GET'):return
         path=self.path.split('?')[0]
         if path=='/api/meta/status':
