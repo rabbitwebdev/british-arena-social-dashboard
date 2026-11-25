@@ -22,7 +22,7 @@ DEFAULT={"title":"My Social Wall","subtitle":"Follow us on social media",
          "accent":"#f04438","background":"#0B1F55","logo":"",
          "facebook_url":"","instagram_url":"","newsletter_url":"",
          "slides":[],"animation":"celebrate","rotation_seconds":12,
-         "qr_enabled":False,"qr_facebook":True,"qr_instagram":True,
+         "qr_enabled":False,"qr_facebook":True,"qr_instagram":False,
          "qr_position":"below","qr_size":180}
 ANIMATIONS={"celebrate","football","confetti","none"}
 
@@ -69,6 +69,8 @@ def _check_config(config):
     for field in ("qr_enabled","qr_facebook","qr_instagram"):
         if type(clean[field]) is not bool:
             raise ValueError("Invalid "+field)
+    if clean["qr_enabled"] and not (clean["qr_facebook"] or clean["qr_instagram"]):
+        raise ValueError("Choose at least one social QR code")
     if clean["qr_position"] not in ("below","side"):
         raise ValueError("Unknown QR placement")
     if type(clean["qr_size"]) is not int or not 120<=clean["qr_size"]<=280:
