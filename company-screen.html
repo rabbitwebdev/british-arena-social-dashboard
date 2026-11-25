@@ -12,6 +12,12 @@ h2{font-size:clamp(18px,2vw,40px);margin:0;font-weight:500}
 #socialArea.side #stats{flex:1;gap:3vw}
 #stats{display:flex;justify-content:center;gap:6vw;flex-wrap:wrap}
 #stats[hidden]{display:none}
+#target-countdowns{width:100%;display:flex;flex-wrap:wrap;justify-content:center;gap:12px}
+#target-countdowns[hidden]{display:none}
+.target-countdown{max-width:95%;border:2px solid var(--accent);background:rgba(0,0,0,.22);
+ padding:12px 26px;text-align:center}
+.target-countdown strong{display:block;font-size:clamp(23px,2.8vw,54px);line-height:1.2}
+.target-countdown small{font-size:clamp(12px,1.15vw,22px);opacity:.85}
 #qr-codes{display:flex;align-items:center;justify-content:center;gap:2vw}
 .qr-card{display:flex;flex-direction:column;align-items:center;gap:8px}
 .qr-card[hidden],#stats section[hidden]{display:none}
@@ -59,6 +65,7 @@ h2{font-size:clamp(18px,2vw,40px);margin:0;font-weight:500}
 <div class="qr-card" id="qr-facebook" hidden><img id="qr-facebook-image" alt="Scan to follow on Facebook"><span>Scan for Facebook</span></div>
 <div class="qr-card" id="qr-instagram" hidden><img id="qr-instagram-image" alt="Scan to follow on Instagram"><span>Scan for Instagram</span></div>
 </div></div>
+<div id="target-countdowns" aria-live="polite" aria-label="Progress towards social milestones" hidden></div>
 <section id="slides"><div id="slideContent"><img id="slideImg" hidden alt=""><div><div id="slideTitle"></div><div id="slideDesc"></div></div></div></section>
 <footer id="footer">Follow us for more updates</footer>
 </div><div id="celebration" aria-live="polite"></div><div id="status"></div>
@@ -158,6 +165,30 @@ function showMilestone(channel,item){
  $("milestone-label").textContent=label+" · "+Number(item.goal).toLocaleString()+" reached!";
  milestoneTimer=setTimeout(()=>{container.className="";milestoneTimer=null},8000);
 }
+function updateCountdowns(milestones,social){
+ const holder=$("target-countdowns");
+ holder.replaceChildren();
+ const accounts={facebook:"Facebook followers",instagram:"Instagram followers",facebook_likes:"Facebook Page likes"};
+ if(!milestones||!social||social.status!=="connected"){
+  holder.hidden=true;return;
+ }
+ for(const [channel,label] of Object.entries(accounts)){
+  const target=milestones[channel];
+  const count=social[channel];
+  if(!target||target.countdown_enabled!==true||
+     target.state==="reached"||!Number.isInteger(count)||count<0)continue;
+  const left=Math.max(0,target.goal-count);
+  if(left===0)continue;
+  const card=document.createElement("div");card.className="target-countdown";
+  const heading=document.createElement("strong");
+  heading.textContent=(target.countdown_message||"Only {remaining} more to go!").replace(
+    "{remaining}",left.toLocaleString());
+  const subtitle=document.createElement("small");
+  subtitle.textContent=label+" · "+count.toLocaleString()+" / "+target.goal.toLocaleString();
+  card.append(heading,subtitle);holder.append(card);
+ }
+ holder.hidden=!holder.childElementCount;
+}
 function celebrate(channel,difference){
  if(!settings||settings.animation==="none"||difference<=0)return;
  const message=settings.animation==="football"?"⚽":settings.animation==="confetti"?"🎉":"✨";
@@ -185,6 +216,7 @@ async function refresh(){
  }
  const social=data.social||{};
  if(!previewMode)checkMilestones(data.milestones);
+ updateCountdowns(previewMode?null:data.milestones,social);
  const fb=social.facebook,ig=social.instagram;
  $("facebook").textContent=fb==null?"—":Number(fb).toLocaleString();
  $("instagram").textContent=ig==null?"—":Number(ig).toLocaleString();
