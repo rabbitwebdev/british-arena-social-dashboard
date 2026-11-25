@@ -184,7 +184,7 @@ function drawSlides(){
      finally{upload.value=""}
    });
    const preview=document.createElement("img");preview.alt="Slide "+(i+1)+" image preview";
-   preview.style.cssText="display:block;max-width:260px;max-height:140px;object-fit:contain;margin-top:8px";
+   preview.style.cssText="max-width:260px;max-height:140px;object-fit:contain;margin-top:8px";
    const renderSlidePreview=()=>{
       const src=imageSrc(input.value);
       if(src){preview.src=src;preview.hidden=false}
