@@ -28,9 +28,13 @@ class CompanyScreenTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_sync_interval_staging_and_rate_limit_guard(self):
-        with patch.dict(os.environ,{"SOCIAL_SYNC_INTERVAL_SECONDS":"15"}):
+        with patch.dict(os.environ,{"SOCIAL_SYNC_INTERVAL_SECONDS":"5","SOCIAL_FAST_POLL_TEST":"true","RAILWAY_ENVIRONMENT_NAME":"staging"}):
+            self.assertEqual(tenant_screens.sync_interval(),5)
+        with patch.dict(os.environ,{"SOCIAL_SYNC_INTERVAL_SECONDS":"1","SOCIAL_FAST_POLL_TEST":"true","RAILWAY_ENVIRONMENT_NAME":"staging"}):
+            self.assertEqual(tenant_screens.sync_interval(),5)
+        with patch.dict(os.environ,{"SOCIAL_SYNC_INTERVAL_SECONDS":"5","SOCIAL_FAST_POLL_TEST":"true","RAILWAY_ENVIRONMENT_NAME":"production"}):
             self.assertEqual(tenant_screens.sync_interval(),15)
-        with patch.dict(os.environ,{"SOCIAL_SYNC_INTERVAL_SECONDS":"1"}):
+        with patch.dict(os.environ,{"SOCIAL_SYNC_INTERVAL_SECONDS":"5","SOCIAL_FAST_POLL_TEST":"false","RAILWAY_ENVIRONMENT_NAME":"staging"}):
             self.assertEqual(tenant_screens.sync_interval(),15)
         with patch.dict(os.environ,{"SOCIAL_SYNC_INTERVAL_SECONDS":"999"}):
             self.assertEqual(tenant_screens.sync_interval(),300)
