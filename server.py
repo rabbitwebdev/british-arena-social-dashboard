@@ -7,6 +7,7 @@ import meta_connect
 import tenant_meta
 import tenant_screens
 import tenant_media
+import tenant_delete
 import client_onboarding
 
 ROOT=Path(__file__).resolve().parent
@@ -269,6 +270,7 @@ class Handler(SimpleHTTPRequestHandler):
         token=session_sign({'username':username,'role':role,'exp':int(time.time()+12*3600)})
         return 'arena_session='+token+'; Path=/; HttpOnly; SameSite=Lax'+('; Secure' if self.headers.get('X-Forwarded-Proto')=='https' or os.environ.get('PUBLIC_ORIGIN','').startswith('https://') else '')
     def do_POST(self):
+        if tenant_delete.route(self,DB_PATH,'POST'):return
         if tenant_media.route(self,DB_PATH,'POST'):return
         if client_onboarding.route(self,DB_PATH,'POST',hash_password,
             lambda username,role:self.set_login_cookie(username,role)):return
