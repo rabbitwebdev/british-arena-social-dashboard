@@ -13,7 +13,7 @@ h2{font-size:clamp(18px,2vw,40px);margin:0;font-weight:500}
 #stats{display:flex;justify-content:center;gap:6vw;flex-wrap:wrap}
 #qr-codes{display:flex;align-items:center;justify-content:center;gap:2vw}
 .qr-card{display:flex;flex-direction:column;align-items:center;gap:8px}
-.qr-card[hidden]{display:none}
+.qr-card[hidden],#stats section[hidden]{display:none}
 .qr-card img{width:var(--qr-size,180px);height:var(--qr-size,180px);max-width:25vw;max-height:28vh;object-fit:contain;background:#fff;border:8px solid white}
 .qr-card span{font-size:clamp(14px,1.4vw,24px);font-weight:750}
 #qr-codes[hidden]{display:none}
@@ -38,8 +38,11 @@ h2{font-size:clamp(18px,2vw,40px);margin:0;font-weight:500}
 <img id="logo" hidden alt="Company logo">
 <header><h1 id="title">Social Wall</h1><h2 id="subtitle">Follow us on social media</h2></header>
 <div id="socialArea">
-<div id="stats"><section><div class="count" id="facebook">—</div><div class="metric">FACEBOOK <b>●</b></div></section>
-<section><div class="count" id="instagram">—</div><div class="metric">INSTAGRAM <b>●</b></div></section></div>
+<div id="stats">
+<section id="metric-facebook-followers"><div class="count" id="facebook">—</div><div class="metric">FACEBOOK FOLLOWERS <b>●</b></div></section>
+<section id="metric-instagram-followers"><div class="count" id="instagram">—</div><div class="metric">INSTAGRAM FOLLOWERS <b>●</b></div></section>
+<section id="metric-facebook-likes" hidden><div class="count" id="facebook-likes">—</div><div class="metric">FACEBOOK PAGE LIKES <b>●</b></div></section>
+</div>
 <div id="qr-codes" hidden>
 <div class="qr-card" id="qr-facebook" hidden><img id="qr-facebook-image" alt="Scan to follow on Facebook"><span>Scan for Facebook</span></div>
 <div class="qr-card" id="qr-instagram" hidden><img id="qr-instagram-image" alt="Scan to follow on Instagram"><span>Scan for Instagram</span></div>
@@ -68,6 +71,20 @@ function showSlide(){
  setImage($("slideImg"),slide.image);
  nextSlideAt=Date.now()+(slide.duration||settings.rotation_seconds||12)*1000;
  slideIndex=(slideIndex+1)%slides.length;
+}
+function updateMetricVisibility(){
+ const toggles=[
+   ["metric-facebook-followers","show_facebook_followers",true],
+   ["metric-instagram-followers","show_instagram_followers",true],
+   ["metric-facebook-likes","show_facebook_likes",false]
+ ];
+ let visible=0;
+ for(const [id,key,defaultValue] of toggles){
+   const show=settings?.[key]===undefined?defaultValue:settings[key]===true;
+   $(id).hidden=!show;
+   if(show)visible++;
+ }
+ $("stats").hidden=visible===0;
 }
 function updateSocialQr(){
  const container=$("qr-codes");
@@ -110,17 +127,19 @@ async function refresh(){
    $("footer").textContent=settings.newsletter_url?"Join our newsletter · "+settings.newsletter_url:"Follow us for more updates";
    setImage($("logo"),settings.logo);
    updateSocialQr();
+   updateMetricVisibility();
    slideIndex=0;showSlide();
  }
  const social=data.social||{};
  const fb=social.facebook,ig=social.instagram;
  $("facebook").textContent=fb==null?"—":Number(fb).toLocaleString();
  $("instagram").textContent=ig==null?"—":Number(ig).toLocaleString();
+ $("facebook-likes").textContent=social.facebook_likes==null?"—":Number(social.facebook_likes).toLocaleString();
  // Never manufacture follow events. Only show changes after a successful sync
  // and only after the first screen fetch.
  if(initialized&&social.status==="connected"&&previous?.status==="connected"){
-   if(fb!=null&&previous.facebook!=null&&fb>previous.facebook)celebrate("Facebook",fb-previous.facebook);
-   if(ig!=null&&previous.instagram!=null&&ig>previous.instagram)celebrate("Instagram",ig-previous.instagram);
+   if(!$("metric-facebook-followers").hidden&&fb!=null&&previous.facebook!=null&&fb>previous.facebook)celebrate("Facebook",fb-previous.facebook);
+   if(!$("metric-instagram-followers").hidden&&ig!=null&&previous.instagram!=null&&ig>previous.instagram)celebrate("Instagram",ig-previous.instagram);
  }
  previous=social;initialized=true;
  $("status").textContent=social.status==="needs_attention"?"Social connection needs attention":"";
