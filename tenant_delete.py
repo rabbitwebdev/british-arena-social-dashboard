@@ -15,6 +15,7 @@ import tenant_media
 
 ORG_ID=re.compile(r"^[a-z0-9-]{1,64}$")
 CHILD_TABLES=(
+    ("company_target_states","org_id"),
     ("client_invitations","organisation_id"),
     ("tenant_oauth_states","organisation_id"),
     ("tenant_meta_pending","organisation_id"),
