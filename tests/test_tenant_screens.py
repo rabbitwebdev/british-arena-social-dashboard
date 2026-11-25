@@ -41,6 +41,89 @@ class CompanyScreenTests(unittest.TestCase):
         with patch.dict(os.environ,{"SOCIAL_SYNC_INTERVAL_SECONDS":"invalid"}):
             self.assertEqual(tenant_screens.sync_interval(),30)
 
+    def test_social_qr_codes_are_opt_in_and_tenant_scoped(self):
+        first=tenant_screens.get_config(self.db,"british-arena")["settings"]
+        updated={**first,"facebook_url":"https://www.facebook.com/sociallikes",
+                 "qr_enabled":True,"qr_facebook":True,"qr_instagram":False,
+                 "qr_position":"side","qr_size":240}
+        tenant_screens.save_config(self.db,"british-arena",updated)
+        self.assertIsNone(tenant_screens.qr_target(
+            tenant_screens.get_config(self.db,"british-arena",True)["settings"],"facebook"))
+        self.assertIsNone(tenant_screens.qr_target(
+            tenant_screens.get_config(self.db,self.second,True)["settings"],"facebook"))
+        self.assertEqual(tenant_screens.qr_target(
+            tenant_screens.get_config(self.db,"british-arena")["settings"],"facebook"),
+            "https://www.facebook.com/sociallikes")
+        tenant_screens.publish(self.db,"british-arena")
+        published=tenant_screens.get_config(self.db,"british-arena",True)["settings"]
+        self.assertEqual(tenant_screens.qr_target(published,"facebook"),
+                         "https://www.facebook.com/sociallikes")
+        self.assertIsNone(tenant_screens.qr_target(published,"instagram"))
+        svg=tenant_screens.qr_svg(tenant_screens.qr_target(published,"facebook"))
+        self.assertIn(b"<svg",svg)
+        self.assertIn(b"</svg>",svg)
+        self.assertGreater(len(svg),250)
+
+    def test_social_qr_invalid_urls_are_rejected(self):
+        base=tenant_screens.get_config(self.db,"british-arena")["settings"]
+        for link in ["javascript:alert(1)","http://facebook.com/test",
+                     "https://facebook.com.evil.invalid/page",
+                     "https://evil.invalid/", "https://user:pass@facebook.com/foo",
+                     "https://facebook.com:444/test"]:
+            with self.subTest(link=link):
+                with self.assertRaises(ValueError):
+                    tenant_screens.save_config(self.db,"british-arena",{
+                        **base,"qr_enabled":True,"qr_facebook":True,
+                        "qr_instagram":False,"facebook_url":link})
+        with self.assertRaises(ValueError):
+            tenant_screens.save_config(self.db,"british-arena",{
+                **base,"qr_enabled":True,"qr_facebook":False,"qr_instagram":False})
+        with self.assertRaises(ValueError):
+            tenant_screens.save_config(self.db,"british-arena",{
+                **base,"qr_enabled":True,"qr_facebook":True,
+                "qr_instagram":False,"facebook_url":"https://www.facebook.com/test",
+                "qr_size":1000})
+
+    def test_qr_svg_routes_are_private_and_published_only(self):
+        import io
+        raw=tenant_screens.rotate_screen_key(self.db,"british-arena")
+        other=tenant_screens.rotate_screen_key(self.db,self.second)
+        class Handler:
+            def __init__(self,url,username=None):
+                self.path=url
+                self.username=username
+                self.response=None
+                self.headers={}
+                self.wfile=io.BytesIO()
+            def current_user(self):
+                return {"username":self.username} if self.username else None
+            def json_response(self,status,body):self.response=(status,body)
+            def send_response(self,status):self.response=(status,None)
+            def send_header(self,key,value):self.headers[key]=value
+            def end_headers(self):pass
+        route=tenant_screens.handler_route
+        public=Handler("/api/screens/"+raw+"/qr/facebook")
+        self.assertTrue(route(public,self.db,"GET"))
+        self.assertEqual(public.response[0],404)
+        base=tenant_screens.get_config(self.db,"british-arena")["settings"]
+        tenant_screens.save_config(self.db,"british-arena",{
+            **base,"qr_enabled":True,"qr_facebook":True,"qr_instagram":False,
+            "facebook_url":"https://facebook.com/sociallikes"})
+        self.assertTrue(route(public,self.db,"GET"))
+        self.assertEqual(public.response[0],404) # draft is not public
+        tenant_screens.publish(self.db,"british-arena")
+        public=Handler("/api/screens/"+raw+"/qr/facebook")
+        self.assertTrue(route(public,self.db,"GET"))
+        self.assertEqual(public.response[0],200)
+        self.assertEqual(public.headers["Content-Type"],"image/svg+xml; charset=utf-8")
+        self.assertIn(b"<svg",public.wfile.getvalue())
+        wrong=Handler("/api/screens/"+other+"/qr/facebook")
+        self.assertTrue(route(wrong,self.db,"GET"))
+        self.assertEqual(wrong.response[0],404)
+        viewer=Handler("/api/organisations/british-arena/screen/qr/facebook","nobody")
+        self.assertTrue(route(viewer,self.db,"GET"))
+        self.assertEqual(viewer.response[0],403)
+
     def test_distinct_company_settings_and_publishing(self):
         arena=tenant_screens.get_config(self.db,"british-arena")
         second=tenant_screens.get_config(self.db,self.second)
