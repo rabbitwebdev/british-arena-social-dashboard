@@ -303,7 +303,7 @@ def handler_route(handler,path,method):
     role=tenant_meta.member_role(path,org,user["username"])
     if not role:
         handler.json_response(403,{"error":"not a member"});return True
-    action=parts[4] if len(parts)==5 else ""
+    action=parts[4] if len(parts)>=5 else ""
     if method=="GET" and len(parts)==6 and action=="qr":
         target=qr_target(get_config(path,org)["settings"],parts[5])
         if not target:
