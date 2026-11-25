@@ -1,0 +1,149 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Company Social Dashboard</title>
+<style>
+:root{font:15px/1.5 system-ui,sans-serif;color:#111d34;background:#f3f5fa}*{box-sizing:border-box}
+body{max-width:1200px;padding:28px 20px;margin:auto}h1{font-size:26px}h2{font-size:18px}
+header,.row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header{justify-content:space-between;margin-bottom:20px}
+a{color:#0B1F55}label{display:block;font-weight:650;margin-top:12px}
+input,textarea,select{display:block;border:1px solid #a8b2c5;background:#fff;border-radius:0;padding:10px;width:100%;font:inherit}
+button{background:#0B1F55;border:1px solid #0B1F55;border-radius:0;padding:11px 15px;font:inherit;color:white;cursor:pointer}
+button.secondary{background:white;color:#0B1F55}
+button:disabled{opacity:.5;cursor:default}
+.grid{display:grid;grid-template-columns:minmax(300px,1fr) minmax(280px,1fr);gap:18px}
+.panel{padding:22px;background:white;border:1px solid #d6dfec;margin-bottom:18px}
+.muted{color:#59667c}.warning{color:#903c1a}.good{color:#17693e}
+code{word-break:break-all;overflow-wrap:anywhere}
+.swatch{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.small{font-size:12px}#result{min-height:28px}
+.slide{border:1px solid #d6dfec;padding:13px;margin:12px 0}
+@media(max-width:780px){.grid{grid-template-columns:1fr}}
+</style>
+<header><div><h1>Company Social Dashboard</h1><p class="muted">Independent social wall, settings and publishing</p></div><div class="row"><a href="/organisations">All companies</a><a href="/admin">Legacy Arena dashboard</a></div></header>
+<p id="result" role="status" aria-live="polite"></p>
+<div class="grid">
+<div>
+<section class="panel">
+<h2>TV design</h2>
+<label for="title">Company / headline</label><input id="title" maxlength="500">
+<label for="subtitle">Supporting text</label><input id="subtitle" maxlength="500">
+<div class="swatch">
+<label>Background colour<input id="background" type="color"></label>
+<label>Accent colour<input id="accent" type="color"></label>
+</div>
+<label for="animation">Follower celebration</label><select id="animation">
+<option value="celebrate">Celebrate</option><option value="football">Football</option>
+<option value="confetti">Confetti</option><option value="none">None</option></select>
+<label for="rotation_seconds">Slide rotation (seconds)</label><input id="rotation_seconds" type="number" min="5" max="120">
+<label for="logo">Logo image URL (HTTPS)</label><input id="logo" maxlength="500" placeholder="https://">
+<label for="facebook_url">Facebook profile URL</label><input id="facebook_url" maxlength="500" placeholder="https://facebook.com/">
+<label for="instagram_url">Instagram profile URL</label><input id="instagram_url" maxlength="500" placeholder="https://instagram.com/">
+<label for="newsletter_url">Newsletter signup URL</label><input id="newsletter_url" maxlength="500" placeholder="https://">
+</section>
+<section class="panel">
+<h2>Slides</h2><p class="muted">Add custom sponsor, event and promotion slides. Image URLs must be HTTPS.</p>
+<div id="slides"></div>
+<button type="button" class="secondary" id="add-slide">Add slide</button>
+</section>
+<div class="panel row"><button id="save">Save draft</button><button id="publish" class="secondary">Publish to TV</button><p class="muted small" id="version"></p></div>
+</div>
+<div>
+<section class="panel"><h2>Connection health</h2><p id="health" class="muted">Loading…</p><div id="social" class="row"></div><p><a href="/organisations">Manage Facebook / Instagram connection</a></p></section>
+<section class="panel"><h2>TV screen access</h2>
+<p class="muted">Generate a private display link for the TV or Raspberry Pi. Anyone with the link can view published screen content and aggregate follower counts.</p>
+<p id="key-status" class="muted"></p>
+<button id="rotate">Generate / replace display link</button>
+<div id="screen-link" hidden><p class="warning">Copy this link now. Replacing it invalidates the previous link.</p>
+<input id="url" readonly aria-label="Private display URL">
+<button class="secondary" id="copy-url">Copy display link</button><a id="open-screen" target="_blank" rel="noreferrer">Open display</a></div>
+</section>
+<section class="panel"><h2>TV preview</h2><p>Published content only. Saves stay private until you press Publish.</p>
+<div style="aspect-ratio:16/9;background:#0B1F55;color:white;display:grid;place-items:center;text-align:center;padding:12px">
+<div><strong id="preview-title">Your social wall</strong><p id="preview-subtitle">Follow us</p><p id="preview-stats">Facebook · Instagram</p></div></div>
+</section>
+</div>
+</div>
+<script>
+"use strict";
+const org=decodeURIComponent(location.pathname.split("/")[2]||"");
+const root="/api/organisations/"+encodeURIComponent(org)+"/screen";
+const fields=["title","subtitle","background","accent","animation","rotation_seconds","logo","facebook_url","instagram_url","newsletter_url"];
+let current={slides:[]},editable=true;
+const $=id=>document.getElementById(id);
+function status(text,bad){$("result").textContent=text;$("result").className=bad?"warning":"good"}
+async function api(path,method,body){
+ const r=await fetch(path,{credentials:"same-origin",method:method||"GET",
+ headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined});
+ const data=await r.json().catch(()=>({}));if(!r.ok)throw Error(data.error||"HTTP "+r.status);return data;
+}
+function validHttp(value){return !value||/^https:\/\//i.test(value)}
+function drawSlides(){
+ const div=$("slides");div.replaceChildren();
+ current.slides.forEach((s,i)=>{
+ const block=document.createElement("div");block.className="slide";
+ const head=document.createElement("strong");head.textContent="Slide "+(i+1);block.append(head);
+ for(const [key,label] of [["title","Title"],["description","Description"],["image","Image URL (HTTPS)"]]){
+ const field=document.createElement("label");field.textContent=label;
+ const input=document.createElement("input");input.value=s[key]||"";input.maxLength=key==="description"?1500:500;
+ input.disabled=!editable;input.addEventListener("input",()=>s[key]=input.value);
+ field.append(input);block.append(field);
+ }
+ const duration=document.createElement("label");duration.textContent="Duration (seconds)";
+ const seconds=document.createElement("input");seconds.type="number";seconds.min="5";seconds.max="120";
+ seconds.value=s.duration||10;seconds.disabled=!editable;seconds.addEventListener("change",()=>s.duration=Number(seconds.value));
+ duration.append(seconds);block.append(duration);
+ const remove=document.createElement("button");remove.className="secondary";remove.textContent="Remove slide";remove.disabled=!editable;
+ remove.addEventListener("click",()=>{current.slides.splice(i,1);drawSlides()});block.append(remove);div.append(block);
+ });
+}
+function loadSettings(settings){
+ current={...settings,slides:settings.slides||[]};
+ for(const field of fields)$(field).value=current[field]??"";
+ drawSlides();
+}
+function gather(){
+ for(const field of fields)current[field]=field==="rotation_seconds"?Number($(field).value):$(field).value;
+ if(!["logo","facebook_url","instagram_url","newsletter_url"].every(k=>validHttp(current[k])))throw Error("Use HTTPS URLs for images and links.");
+ for(const s of current.slides)if(!validHttp(s.image||""))throw Error("Slide images must use HTTPS.");
+ return current;
+}
+async function refresh(){
+ const config=await api(root+"/config");loadSettings(config.settings);
+ $("version").textContent="Draft v"+config.version+" · Published v"+config.published_version;
+ const health=await api(root+"/social");
+ $("health").textContent=health.status.replaceAll("_"," ")+(health.last_success_at?" · Last synced "+new Date(health.last_success_at*1000).toLocaleString():"");
+ $("social").textContent="Facebook: "+(health.facebook??"—")+" · Instagram: "+(health.instagram??"—");
+ $("preview-stats").textContent="Facebook "+(health.facebook??"—")+" · Instagram "+(health.instagram??"—");
+ const access=await api(root+"/access");
+ $("key-status").textContent=access.configured?"A screen link exists. Only generating a new link will replace it.":"No screen display link created yet.";
+ $("rotate").disabled=!access.can_rotate;
+ const me=await api("/api/me");
+ const orgs=(await api("/api/organisations")).organisations;
+ const role=orgs.find(o=>o.id===org)?.role;
+ editable=role==="owner"||role==="manager";
+ for(const field of fields)$(field).disabled=!editable;
+ for(const btn of ["save","publish","add-slide"])$(btn).disabled=!editable;
+ drawSlides();
+ const published=await api(root+"/config");
+ $("preview-title").textContent=published.settings.title;
+ $("preview-subtitle").textContent=published.settings.subtitle;
+}
+$("add-slide").onclick=()=>{if(current.slides.length>=20)return status("Maximum 20 slides",true);
+ current.slides.push({title:"New slide",description:"",image:"",duration:10});drawSlides()};
+$("save").onclick=async()=>{try{const settings=gather();const result=await api(root+"/config","POST",{settings});
+ status("Draft saved (version "+result.version+").");await refresh()}catch(e){status(e.message,true)}};
+$("publish").onclick=async()=>{try{const settings=gather();
+ await api(root+"/config","POST",{settings});const result=await api(root+"/publish","POST",{});
+ status("Published version "+result.version+". TV screens will update automatically.");await refresh()}catch(e){status(e.message,true)}};
+$("rotate").onclick=async()=>{if(!$("rotate").disabled){
+ if(!confirm("Generate a new TV display link? Existing display links will stop working."))return;
+ try{const result=await api(root+"/rotate-key","POST",{});
+ $("screen-link").hidden=false;$("url").value=result.url;$("open-screen").href=result.url;
+ $("key-status").textContent="New screen link generated. Keep it private.";
+ }catch(e){status(e.message,true)}
+}};
+$("copy-url").onclick=()=>navigator.clipboard.writeText($("url").value).then(()=>status("Display link copied."),()=>status("Select and copy the link manually.",true));
+refresh().catch(e=>status(e.message,true));
+setInterval(async()=>{try{const social=await api(root+"/social");$("social").textContent="Facebook: "+(social.facebook??"—")+" · Instagram: "+(social.instagram??"—");
+$("health").textContent=social.status.replaceAll("_"," ")+(social.last_success_at?" · Last synced "+new Date(social.last_success_at*1000).toLocaleString():"")}catch(e){}},30000);
+</script></html>
