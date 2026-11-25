@@ -94,5 +94,43 @@ class TenantMetaTests(unittest.TestCase):
         self.assertEqual(tenant_meta.member_role(self.path,org,"marketer"),"manager")
 
 
+    def test_public_api_never_exposes_platform_credentials(self):
+        class Handler:
+            path="/api/platform/integrations/meta"
+            def __init__(self,admin):
+                self.admin=admin
+                self.status=None
+                self.body=None
+            def is_admin(self):return self.admin
+            def json_response(self,status,body):
+                self.status=status
+                self.body=body
+        denied=Handler(False)
+        self.assertTrue(tenant_meta.route(denied,self.path,"GET"))
+        self.assertEqual(denied.status,403)
+        allowed=Handler(True)
+        self.assertTrue(tenant_meta.route(allowed,self.path,"GET"))
+        self.assertEqual(allowed.status,200)
+        self.assertTrue(allowed.body["configured"])
+        self.assertNotIn("fake-not-production",str(allowed.body))
+        self.assertEqual(allowed.body["callback_url"],"https://staging.example.test/api/integrations/meta/callback")
+
+    def test_company_connection_availability_does_not_leak_api_settings(self):
+        class Handler:
+            path="/api/organisations/british-arena/meta/availability"
+            def current_user(self):return {"username":"admin"}
+            def json_response(self,status,body):
+                self.status=status
+                self.body=body
+        handler=Handler()
+        self.assertTrue(tenant_meta.route(handler,self.path,"GET"))
+        self.assertEqual(handler.status,200)
+        self.assertTrue(handler.body["available"])
+        with patch.dict(os.environ,{"META_APP_ID":""}):
+            self.assertTrue(tenant_meta.route(handler,self.path,"GET"))
+            self.assertFalse(handler.body["available"])
+            self.assertNotIn("META_APP_ID",str(handler.body))
+
+
 if __name__=="__main__":
     unittest.main()
