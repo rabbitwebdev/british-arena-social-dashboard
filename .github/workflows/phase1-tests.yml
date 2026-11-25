@@ -20,4 +20,4 @@ jobs:
       - name: Test tenancy and Meta OAuth storage
         run: python -m unittest discover -s tests -v
       - name: Check stdlib dashboard compiles
-        run: python -m py_compile server.py meta_connect.py tenant_meta.py tenant_screens.py client_onboarding.py tenant_media.py
+        run: python -m py_compile server.py meta_connect.py tenant_meta.py tenant_screens.py client_onboarding.py tenant_media.py tenant_targets.py tenant_delete.py
