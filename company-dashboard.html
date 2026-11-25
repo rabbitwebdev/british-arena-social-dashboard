@@ -128,7 +128,7 @@ function drawSlides(){
  });
 }
 function loadSettings(settings){
- current={...settings,slides:settings.slides||[]};
+ current={qr_enabled:false,qr_facebook:true,qr_instagram:false,qr_position:"below",qr_size:180,...settings,slides:settings.slides||[]};
  for(const field of fields)$(field).value=current[field]??"";
  for(const field of qrBools)$(field).checked=!!current[field];
  drawSlides();
