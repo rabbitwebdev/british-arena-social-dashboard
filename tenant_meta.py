@@ -212,6 +212,20 @@ def route(handler, path, method):
     """Handle tenant routes using the parent Handler's session and CSRF checks."""
     parsed=urllib.parse.urlsplit(handler.path)
     segments=parsed.path.strip("/").split("/")
+    if segments==["api","platform","integrations","meta"] and method=="GET":
+        if not handler.is_admin():
+            handler.json_response(403,{"error":"platform administrator only"});return True
+        required=("META_APP_ID","META_APP_SECRET","META_TOKEN_ENCRYPTION_KEY","PUBLIC_ORIGIN")
+        missing=[key for key in required if not os.environ.get(key)]
+        handler.json_response(200,{
+            "configured":not missing,
+            "missing":missing,
+            "callback_url":redirect_uri() if os.environ.get("PUBLIC_ORIGIN") else None,
+            "graph_version":meta_connect.GRAPH_VERSION,
+            "credentials_location":"Railway environment variables",
+            "customer_setup_required":False
+        })
+        return True
     if segments==["api","organisations"]:
         user=handler.current_user()
         if not user:
@@ -249,6 +263,14 @@ def route(handler, path, method):
             except (TypeError,ValueError,KeyError,sqlite3.IntegrityError):
                 handler.json_response(400,{"error":"invalid member"})
             return True
+        if segments[3:]==["meta","availability"] and method=="GET":
+            handler.json_response(200,{
+                "available":bool(meta_connect.configured()),
+                "message":("Connect your Facebook Page to get started."
+                           if meta_connect.configured()
+                           else "Facebook connections are being prepared. Please try again later.")
+            })
+            return True
         if segments[3:]==["meta","connections"] and method=="GET":
             handler.json_response(200,{"connections":connections(path,org)});return True
         if len(segments)==5 and segments[3]=="meta":
@@ -257,7 +279,7 @@ def route(handler, path, method):
             operation=segments[4]
             if operation=="connect" and method=="GET":
                 if not meta_connect.configured():
-                    handler.json_response(503,{"error":"Meta app not configured"});return True
+                    handler.json_response(503,{"error":"Facebook connections are temporarily unavailable. Please try again later."});return True
                 handler.send_response(303)
                 handler.send_header("Location",authorize(path,org,username))
                 handler.send_header("Cache-Control","no-store")
