@@ -58,6 +58,7 @@ code{word-break:break-all;overflow-wrap:anywhere}
 <label><input id="show_facebook_likes" type="checkbox" style="display:inline;width:auto"> Show Facebook Page likes</label>
 <p class="muted small">Page likes are a separate Facebook metric. If Meta doesn't provide that count, the TV shows a dash instead of inventing one.</p>
 </section>
+<section class="panel" id="targets-panel"><h2>Social milestone targets</h2><p class="muted">Choose a milestone for each social counter. The TV celebrates once when a fresh count reaches your goal.</p><div id="targets"></div><p class="muted small">Already-reached goals do not trigger. Set a new target number for the next celebration.</p></section>
 <section class="panel" id="qr-panel">
 <h2>Social page QR codes</h2>
 <p class="muted">Let guests scan the TV to visit your official Facebook or Instagram page. No third-party QR service is used.</p>
@@ -101,6 +102,37 @@ const root="/api/organisations/"+encodeURIComponent(org)+"/screen";
 const fields=["title","subtitle","background","accent","animation","rotation_seconds","logo","facebook_url","instagram_url","newsletter_url","qr_position","qr_size"];
 const qrBools=["qr_enabled","qr_facebook","qr_instagram"];
 const metricBools=["show_facebook_followers","show_instagram_followers","show_facebook_likes"];
+const milestoneChannels=[["facebook","Facebook followers"],["instagram","Instagram followers"],["facebook_likes","Facebook Page likes"]];
+function renderTargets(){
+ const holder=$("targets");holder.replaceChildren();
+ for(const [name,label] of milestoneChannels){
+  const value=current.targets?.[name]||{enabled:false,goal:0,message:"Target reached! Thank you for following us.",animation:"confetti"};
+  const block=document.createElement("div");block.className="slide";
+  const enableLabel=document.createElement("label");
+  const enable=document.createElement("input");enable.type="checkbox";enable.checked=value.enabled===true;
+  enable.style.cssText="display:inline;width:auto;margin-right:8px";enable.disabled=!editable;
+  enableLabel.append(enable,document.createTextNode("Enable "+label+" target"));
+  const goalLabel=document.createElement("label");goalLabel.textContent="Target count";
+  const goal=document.createElement("input");goal.type="number";goal.min="1";goal.max="2000000000";goal.step="1";
+  goal.value=value.goal||"";goal.placeholder="e.g. 1233";goalLabel.append(goal);
+  const msgLabel=document.createElement("label");msgLabel.textContent="Message when reached";
+  const msg=document.createElement("textarea");msg.rows=2;msg.maxLength=240;
+  msg.value=value.message||"Target reached! Thank you for following us.";msgLabel.append(msg);
+  const animLabel=document.createElement("label");animLabel.textContent="Animation";
+  const anim=document.createElement("select");
+  for(const [id,title] of [["confetti","🎉 Confetti"],["fireworks","🎆 Fireworks"],["football","⚽ Football"],["celebrate","✨ Celebration"]]){
+   const opt=document.createElement("option");opt.value=id;opt.textContent=title;anim.append(opt);
+  }
+  anim.value=value.animation||"confetti";animLabel.append(anim);
+  const sync=()=>{
+   for(const el of [goal,msg,anim])el.disabled=!editable||!enable.checked;
+   current.targets={...(current.targets||{}),[name]:{enabled:enable.checked,
+    goal:goal.value?Number(goal.value):0,message:msg.value,animation:anim.value}};
+  };
+  for(const el of [enable,goal,msg,anim])el.addEventListener("input",sync);
+  block.append(enableLabel,goalLabel,msgLabel,animLabel);holder.append(block);sync();
+ }
+}
 let current={slides:[]},editable=true;
 const $=id=>document.getElementById(id);
 function status(text,bad){$("result").textContent=text;$("result").className=bad?"warning":"good"}
@@ -207,11 +239,12 @@ function drawSlides(){
  });
 }
 function loadSettings(settings){
- current={qr_enabled:false,qr_facebook:true,qr_instagram:false,qr_position:"below",qr_size:180,show_facebook_followers:true,show_instagram_followers:true,show_facebook_likes:false,...settings,slides:settings.slides||[]};
+ current={qr_enabled:false,qr_facebook:true,qr_instagram:false,qr_position:"below",qr_size:180,show_facebook_followers:true,show_instagram_followers:true,show_facebook_likes:false,...settings,slides:settings.slides||[],targets:JSON.parse(JSON.stringify(settings.targets||{}))};
  for(const field of fields)$(field).value=current[field]??"";
  for(const field of [...qrBools,...metricBools])$(field).checked=!!current[field];
  updateLogoPreview();
  drawSlides();
+ renderTargets();
  renderQrPreview();
 }
 function gather(){
@@ -234,6 +267,11 @@ function gather(){
    if(!count)throw Error("Select at least one social network for QR codes.");
  }
  for(const s of current.slides)if(!validImage(s.image||""))throw Error("Upload slide images or use HTTPS image URLs.");
+ for(const [name,label] of milestoneChannels){
+   const t=current.targets?.[name];
+   if(t?.enabled&&(!Number.isInteger(t.goal)||t.goal<1))throw Error("Choose a valid target number for "+label);
+   if(t?.enabled&&!t.message?.trim())throw Error("Enter a milestone message for "+label);
+ }
  return current;
 }
 async function refresh(){
@@ -257,6 +295,7 @@ async function refresh(){
  for(const field of [...qrBools,...metricBools])$(field).disabled=!editable;
  for(const btn of ["save","publish","add-slide"])$(btn).disabled=!editable;
  drawSlides();
+ renderTargets();
  const published=await api(root+"/published");
  $("preview-title").textContent=published.settings.title;
  $("preview-subtitle").textContent=published.settings.subtitle;
