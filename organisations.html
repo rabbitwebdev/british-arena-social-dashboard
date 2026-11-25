@@ -13,6 +13,7 @@ small,.muted{color:#51627c}.danger{background:#8a2233}#message{min-height:22px}
 </style>
 <header><div><h1>Company connections</h1><p class="muted">Each company authorizes its own Facebook Pages.</p></div><a href="/admin">Back to dashboard</a></header>
 <div id="message" role="status" aria-live="polite"></div>
+<p id="platform-link" hidden><a href="/platform-integrations">Platform integrations (administrators only)</a></p>
 <section id="new-company" class="card" hidden>
 <h2>Add company</h2><form id="company-form" class="row">
 <label for="name">Company name</label><input id="name" minlength="2" maxlength="100" required>
@@ -36,6 +37,7 @@ async function reload(){
  const current=await api("/api/me");
  if(!current.user)throw new Error("Please sign in first.");
  document.getElementById("new-company").hidden=current.user.role!=="admin";
+ document.getElementById("platform-link").hidden=current.user.role!=="admin";
  const items=(await api("/api/organisations")).organisations;
  if(!items.length)companies.append(el("p","No companies assigned."));
  for(const org of items){
@@ -64,9 +66,18 @@ async function reload(){
      }catch(e){body.append(el("p",e.message))}
    };
    if(org.role!=="viewer"){
-     section.append(button("Connect Facebook / Instagram",()=>{
-       location.assign("/api/organisations/"+encodeURIComponent(org.id)+"/meta/connect");
-     }));
+     const availability=await api("/api/organisations/"+encodeURIComponent(org.id)+"/meta/availability");
+     if(availability.available){
+       section.append(button("Connect Facebook / Instagram",()=>{
+         location.assign("/api/organisations/"+encodeURIComponent(org.id)+"/meta/connect");
+       }));
+       section.append(el("small","Choose your Facebook Page after signing in to Meta.","muted"));
+     }else{
+       const disabled=button("Facebook / Instagram connection coming soon",()=>{});
+       disabled.disabled=true;
+       section.append(disabled);
+       section.append(el("p",availability.message,"muted"));
+     }
    }
    companies.append(section);
    await render();
