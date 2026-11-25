@@ -170,7 +170,7 @@ async function refresh(){
  const health=await api(root+"/social");
  $("health").textContent=health.status.replaceAll("_"," ")+(health.last_success_at?" · Last synced "+new Date(health.last_success_at*1000).toLocaleString():"");
  $("social").textContent="Facebook: "+(health.facebook??"—")+" · Instagram: "+(health.instagram??"—");
- $("preview-stats").textContent="Facebook "+(health.facebook??"—")+" · Instagram "+(health.instagram??"—");
+ $("preview-stats").textContent="Loading published counters…";
  const access=await api(root+"/access");
  $("key-status").textContent=access.configured?"A screen link exists. Only generating a new link will replace it.":"No screen display link created yet.";
  $("rotate").disabled=!access.can_rotate;
@@ -186,6 +186,12 @@ async function refresh(){
  const published=await api(root+"/published");
  $("preview-title").textContent=published.settings.title;
  $("preview-subtitle").textContent=published.settings.subtitle;
+ const p=published.settings;
+ const counters=[];
+ if(p.show_facebook_followers!==false)counters.push("Facebook followers "+(health.facebook??"—"));
+ if(p.show_instagram_followers!==false)counters.push("Instagram followers "+(health.instagram??"—"));
+ if(p.show_facebook_likes===true)counters.push("Facebook Page likes "+(health.facebook_likes??"—"));
+ $("preview-stats").textContent=counters.join(" · ")||"Counters hidden";
 }
 $("add-slide").onclick=()=>{if(current.slides.length>=20)return status("Maximum 20 slides",true);
  current.slides.push({title:"New slide",description:"",image:"",duration:10});drawSlides()};
