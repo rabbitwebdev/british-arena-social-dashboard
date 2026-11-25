@@ -435,7 +435,7 @@ if __name__=='__main__':
         while True:
             try:tenant_screens.poll_all(DB_PATH)
             except Exception:pass
-            time.sleep(90)
+            time.sleep(tenant_screens.sync_interval())
     threading.Thread(target=company_sync_loop,daemon=True).start()
     print(f'Arena dashboard: http://localhost:8765 ({"DEMO" if demo else "LIVE"} mode)',flush=True)
     ThreadingHTTPServer(('0.0.0.0',int(os.getenv('PORT','8765'))),Handler).serve_forever()
