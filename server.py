@@ -6,6 +6,7 @@ from http.cookies import SimpleCookie
 import meta_connect
 import tenant_meta
 import tenant_screens
+import client_onboarding
 
 ROOT=Path(__file__).resolve().parent
 CACHE={'instagram':None,'facebook':None,'updated':None,'error':None,'demo':False}
@@ -32,6 +33,7 @@ def db_init():
     meta_connect.init(DB_PATH)
     tenant_meta.init(DB_PATH)
     tenant_screens.init(DB_PATH)
+    client_onboarding.init(DB_PATH)
 
 def db_get():
     with DB_LOCK, sqlite3.connect(DB_PATH) as db:
@@ -252,7 +254,12 @@ class Handler(SimpleHTTPRequestHandler):
             version=db_update(settings)
             return self.json_response(200,{'ok':True,'version':version})
         except (ValueError,KeyError,TypeError):return self.json_response(400,{'error':'invalid settings'})
+    def set_login_cookie(self,username,role):
+        token=session_sign({'username':username,'role':role,'exp':int(time.time()+12*3600)})
+        return 'arena_session='+token+'; Path=/; HttpOnly; SameSite=Lax'+('; Secure' if self.headers.get('X-Forwarded-Proto')=='https' or os.environ.get('PUBLIC_ORIGIN','').startswith('https://') else '')
     def do_POST(self):
+        if client_onboarding.route(self,DB_PATH,'POST',hash_password,
+            lambda username,role:self.set_login_cookie(username,role)):return
         if tenant_screens.handler_route(self,DB_PATH,'POST'):return
         if tenant_meta.route(self,DB_PATH,'POST'):return
         path=self.path.split('?')[0]
@@ -281,15 +288,18 @@ class Handler(SimpleHTTPRequestHandler):
             username=fields.get('username',['admin'])[0].strip().lower()
             password=fields.get('password',[''])[0]
             role=None
+            if not client_onboarding.can_login(DB_PATH,username):
+                return self.no_cache_html('<h1>Too many attempts</h1><p>Try again after 15 minutes.</p>',429)
             if username=='admin' and hmac.compare_digest(password,ADMIN_PASSWORD):role='admin'
             elif username!='admin':
                 with DB_LOCK,sqlite3.connect(DB_PATH) as db:
                     row=db.execute('SELECT password_hash,role FROM staff WHERE username=?',(username,)).fetchone()
                 if row and check_password(password,row[0]):role=row[1]
+            client_onboarding.login_result(DB_PATH,username,role is not None)
             if role is None:return self.no_cache_html('<h1>Incorrect credentials</h1><p><a href="/login">Try again</a></p>',401)
-            token=session_sign({'username':username,'role':role,'exp':int(time.time()+12*3600)})
-            cookie='arena_session='+token+'; Path=/; HttpOnly; SameSite=Lax'+('; Secure' if self.headers.get('X-Forwarded-Proto')=='https' else '')
-            self.send_response(303);self.send_header('Set-Cookie',cookie);self.send_header('Location','/admin');self.end_headers();return
+            cookie=self.set_login_cookie(username,role)
+            destination='/admin' if tenant_meta.member_role(DB_PATH,'british-arena',username) else '/organisations'
+            self.send_response(303);self.send_header('Set-Cookie',cookie);self.send_header('Location',destination);self.end_headers();return
         if path in ('/api/publish','/api/undo','/api/staff'):
             if not self.same_origin():return self.json_response(403,{'error':'forbidden'})
             if path=='/api/staff':
@@ -337,6 +347,12 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         path=self.path.split('?')[0]
         segments=path.strip('/').split('/')
+        if path=='/accept-invite':
+            return self.no_cache_html((ROOT/'accept-invite.html').read_text())
+        if len(segments)==2 and segments[0]=='onboarding':
+            user=self.current_user()
+            if not user or not tenant_meta.member_role(DB_PATH,segments[1],user['username']):return self.send_error(403)
+            return self.no_cache_html((ROOT/'client-welcome.html').read_text())
         if len(segments)==2 and segments[0]=='company':
             user=self.current_user()
             if not user:return self.send_error(403)
