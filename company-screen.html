@@ -238,13 +238,26 @@ if(previewMode){
  window.addEventListener("message",event=>{
    if(event.origin!==location.origin||event.source!==window.parent)return;
    const payload=event.data;
-   if(!payload||payload.type!=="social-milestone-preview"||
+   if(!payload||!["social-milestone-preview","social-countdown-preview"].includes(payload.type)||
       !["facebook","instagram","facebook_likes"].includes(payload.channel))return;
    const item=payload.target;
    if(!item||!Number.isInteger(item.goal)||item.goal<1||item.goal>2000000000||
       typeof item.message!=="string"||item.message.length>240||
       !["celebrate","confetti","football","fireworks"].includes(item.animation))return;
-   showMilestone(payload.channel,item);
+   if(payload.type==="social-milestone-preview"){
+     $("target-countdowns").replaceChildren();$("target-countdowns").hidden=true;
+     showMilestone(payload.channel,item);
+     return;
+   }
+   if(typeof item.countdown_message!=="string"||item.countdown_message.length>240||
+      item.countdown_message.split("{remaining}").length!==2||
+      !Number.isInteger(payload.remaining)||payload.remaining<1||payload.remaining>item.goal)return;
+   $("milestone").className="";
+   const fakeCount=item.goal-payload.remaining;
+   updateCountdowns({[payload.channel]:{
+     goal:item.goal,state:"armed",countdown_enabled:true,
+     countdown_message:item.countdown_message
+   }},{status:"connected",[payload.channel]:fakeCount});
  });
  window.parent.postMessage({type:"social-milestone-preview-ready"},location.origin);
  refresh();
