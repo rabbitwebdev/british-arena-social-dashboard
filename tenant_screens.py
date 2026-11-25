@@ -208,8 +208,14 @@ def sync_interval():
 def poll_all(path):
     with closing(_db(path)) as db:
         orgs=[row[0] for row in db.execute("SELECT DISTINCT organisation_id FROM tenant_meta_connections").fetchall()]
+    failures=0
     for org in orgs:
         sync_org(path,org)
+        with closing(_db(path)) as db:
+            row=db.execute("SELECT status FROM company_social_counts WHERE org_id=?",(org,)).fetchone()
+        if row and row[0] in ("needs_attention","unavailable"):
+            failures+=1
+    return failures
 
 def handler_route(handler,path,method):
     parts=handler.path.split("?",1)[0].strip("/").split("/")
