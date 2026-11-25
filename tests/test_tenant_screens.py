@@ -161,6 +161,50 @@ class CompanyScreenTests(unittest.TestCase):
         self.assertEqual(tenant_screens.screen_org(self.db,newer),"british-arena")
         self.assertEqual(tenant_screens.screen_org(self.db,b),self.second)
 
+    def test_social_metric_visibility_is_company_scoped(self):
+        first=tenant_screens.get_config(self.db,"british-arena")["settings"]
+        self.assertTrue(first["show_facebook_followers"])
+        self.assertTrue(first["show_instagram_followers"])
+        self.assertFalse(first["show_facebook_likes"])
+        custom={**first,"show_facebook_followers":False,
+                "show_instagram_followers":False,"show_facebook_likes":True}
+        tenant_screens.save_config(self.db,"british-arena",custom)
+        self.assertTrue(tenant_screens.get_config(self.db,"british-arena",True)
+                        ["settings"]["show_facebook_followers"])
+        tenant_screens.publish(self.db,"british-arena")
+        updated=tenant_screens.get_config(self.db,"british-arena",True)["settings"]
+        other=tenant_screens.get_config(self.db,self.second,True)["settings"]
+        self.assertFalse(updated["show_facebook_followers"])
+        self.assertFalse(updated["show_instagram_followers"])
+        self.assertTrue(updated["show_facebook_likes"])
+        self.assertTrue(other["show_facebook_followers"])
+        self.assertTrue(other["show_instagram_followers"])
+        self.assertFalse(other["show_facebook_likes"])
+        for invalid in ["yes",None,1,0]:
+            with self.assertRaises(ValueError):
+                tenant_screens.save_config(self.db,"british-arena",
+                    {**first,"show_facebook_followers":invalid})
+
+    def test_existing_social_count_schema_migrates_without_data_loss(self):
+        with sqlite3.connect(self.db) as db:
+            db.execute("INSERT INTO company_social_counts "
+                       "(org_id,facebook_count,instagram_count,last_success_at,last_attempt_at,status) "
+                       "VALUES (?,?,?,?,?,?)",
+                       (self.second,17,None,123,123,"connected"))
+            db.execute("ALTER TABLE company_social_counts RENAME TO existing_social_counts")
+            db.execute("CREATE TABLE company_social_counts("
+                       "org_id TEXT PRIMARY KEY,facebook_count INTEGER,instagram_count INTEGER,"
+                       "last_success_at INTEGER,last_attempt_at INTEGER,status TEXT)")
+            db.execute("INSERT INTO company_social_counts SELECT org_id,facebook_count,"
+                       "instagram_count,last_success_at,last_attempt_at,status "
+                       "FROM existing_social_counts")
+            db.execute("DROP TABLE existing_social_counts")
+        tenant_screens.init(self.db)
+        with sqlite3.connect(self.db) as db:
+            row=db.execute("SELECT facebook_count,facebook_likes FROM company_social_counts "
+                           "WHERE org_id=?",(self.second,)).fetchone()
+        self.assertEqual(row,(17,None))
+
     def test_follower_sync_scoped_by_organisation(self):
         tenant_meta.save_page(self.db,"british-arena","admin",{
             "id":"a-page","name":"First","access_token":"token-a","instagram_id":"ig-a"})
@@ -169,12 +213,17 @@ class CompanyScreenTests(unittest.TestCase):
         seen=[]
         def fake_graph(path,fields,token):
             seen.append((path,token))
-            return {"followers_count":{"a-page":120,"b-page":230,"ig-a":70}[path]}
+            result={"followers_count":{"a-page":120,"b-page":230,"ig-a":70}[path]}
+            if path=="a-page":result["fan_count"]=119
+            if path=="b-page":result["fan_count"]=215
+            return result
         with patch.object(tenant_screens.meta_connect,"graph",side_effect=fake_graph):
             tenant_screens.poll_all(self.db)
         first=tenant_screens.connection_health(self.db,"british-arena")
         second=tenant_screens.connection_health(self.db,self.second)
         self.assertEqual(first["facebook"],120)
+        self.assertEqual(first["facebook_likes"],119)
+        self.assertEqual(second["facebook_likes"],215)
         self.assertEqual(first["instagram"],70)
         self.assertEqual(second["facebook"],230)
         self.assertIsNone(second["instagram"])
