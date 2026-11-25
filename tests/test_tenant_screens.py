@@ -27,6 +27,16 @@ class CompanyScreenTests(unittest.TestCase):
         self.env.stop()
         self.tmp.cleanup()
 
+    def test_sync_interval_staging_and_rate_limit_guard(self):
+        with patch.dict(os.environ,{"SOCIAL_SYNC_INTERVAL_SECONDS":"15"}):
+            self.assertEqual(tenant_screens.sync_interval(),15)
+        with patch.dict(os.environ,{"SOCIAL_SYNC_INTERVAL_SECONDS":"1"}):
+            self.assertEqual(tenant_screens.sync_interval(),15)
+        with patch.dict(os.environ,{"SOCIAL_SYNC_INTERVAL_SECONDS":"999"}):
+            self.assertEqual(tenant_screens.sync_interval(),300)
+        with patch.dict(os.environ,{"SOCIAL_SYNC_INTERVAL_SECONDS":"invalid"}):
+            self.assertEqual(tenant_screens.sync_interval(),30)
+
     def test_distinct_company_settings_and_publishing(self):
         arena=tenant_screens.get_config(self.db,"british-arena")
         second=tenant_screens.get_config(self.db,self.second)
