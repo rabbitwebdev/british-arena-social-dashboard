@@ -369,6 +369,11 @@ class Handler(SimpleHTTPRequestHandler):
             user=self.current_user()
             if not user or not tenant_meta.member_role(DB_PATH,segments[1],user['username']):return self.send_error(403)
             return self.no_cache_html((ROOT/'client-welcome.html').read_text())
+        if len(segments)==3 and segments[0]=='company' and segments[2]=='preview':
+            user=self.current_user()
+            if not user or not tenant_meta.member_role(DB_PATH,segments[1],user['username']):
+                return self.send_error(403)
+            return self.no_cache_html((ROOT/'company-screen.html').read_text(),headers={'Referrer-Policy':'no-referrer'})
         if len(segments)==2 and segments[0]=='company':
             user=self.current_user()
             if not user:return self.send_error(403)
