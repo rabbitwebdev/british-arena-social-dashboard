@@ -178,8 +178,24 @@ function renderTargets(){
     }
     openMilestonePreview(name,label,target);
   });
+  const previewCountdown=document.createElement("button");
+  previewCountdown.type="button";previewCountdown.className="secondary";
+  previewCountdown.textContent="▶ Preview countdown";
+  previewCountdown.addEventListener("click",()=>{
+    const target={goal:Number(goal.value),message:msg.value||"Target reached!",
+      animation:anim.value,countdown_message:countdownText.value};
+    if(!Number.isInteger(target.goal)||target.goal<1||target.goal>2000000000){
+      status("Set a valid target to preview the countdown for "+label,true);return;
+    }
+    if(target.countdown_message.split("{remaining}").length!==2){
+      status("Use {remaining} exactly once in the countdown message.",true);return;
+    }
+    const live=currentLiveCounts[name];
+    const remaining=Number.isInteger(live)&&live<target.goal?target.goal-live:Math.min(22,target.goal);
+    openMilestonePreview(name,label,target,"social-countdown-preview",remaining);
+  });
   block.append(enableLabel,goalLabel,msgLabel,animLabel,
-    countdownToggleLabel,countdownTextLabel,countdownExample,preview);
+    countdownToggleLabel,countdownTextLabel,countdownExample,preview,previewCountdown);
   holder.append(block);sync();
  }
 }
@@ -191,12 +207,16 @@ const previewFrame=document.getElementById("milestone-frame");
 function transmitPreview(){
  if(!previewReady||!pendingPreview)return;
  previewFrame.contentWindow.postMessage(
-  {type:"social-milestone-preview",channel:pendingPreview.channel,target:pendingPreview.target},
+  {type:pendingPreview.type,channel:pendingPreview.channel,
+    target:pendingPreview.target,remaining:pendingPreview.remaining},
   location.origin);
 }
-function openMilestonePreview(channel,label,target){
- pendingPreview={channel,label,target};
- document.getElementById("milestone-preview-title").textContent=label+" · target celebration";
+function openMilestonePreview(channel,label,target,type="social-milestone-preview",remaining=null){
+ pendingPreview={channel,label,target,type,remaining};
+ document.getElementById("milestone-preview-title").textContent=
+    label+(type==="social-countdown-preview"?" · countdown preview":" · target celebration");
+ document.getElementById("replay-preview").textContent=
+    type==="social-countdown-preview"?"Replay countdown":"Replay celebration";
  previewReady=false;
  modal.showModal();
  // Never use live TV links or trigger the real threshold detection.
