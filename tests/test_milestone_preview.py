@@ -49,6 +49,21 @@ class MilestonePreviewTests(unittest.TestCase):
         after=tenant_targets.events(self.path,self.org,config)
         self.assertEqual(before,after)
         self.assertIsNone(after["facebook"]["event_id"])
+    def test_countdown_preview_is_client_side_and_requires_private_company_page(self):
+        from pathlib import Path
+        root=Path(__file__).resolve().parents[1]
+        editor=(root/"company-dashboard.html").read_text()
+        screen=(root/"company-screen.html").read_text()
+        self.assertIn("Preview countdown",editor)
+        self.assertIn("social-countdown-preview",editor)
+        self.assertIn("social-countdown-preview",screen)
+        self.assertIn("target-countdowns",screen)
+        self.assertIn('target.countdown_enabled!==true',screen)
+        self.assertIn('target.state==="reached"',screen)
+        self.assertIn('social.status!=="connected"',screen)
+        self.assertIn("Math.max(0,target.goal-count)",screen)
+        self.assertIn('previewFrame.src="/company/"+encodeURIComponent(org)+"/preview"',editor)
+
     def test_editor_contains_preview_and_replay_ui(self):
         from pathlib import Path
         root=Path(__file__).resolve().parents[1]
