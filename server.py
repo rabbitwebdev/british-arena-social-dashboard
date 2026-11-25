@@ -197,8 +197,13 @@ class Handler(SimpleHTTPRequestHandler):
                 if row and row[0]==user['role']:return user
         except Exception:pass
         return None
-    def admin_ok(self):return self.current_user() is not None
-    def can_edit(self):return bool(self.current_user() and self.current_user()['role'] in ('admin','marketing'))
+    def legacy_member(self):
+        user=self.current_user()
+        return bool(user and tenant_meta.member_role(DB_PATH,'british-arena',user['username']))
+    def admin_ok(self):return self.legacy_member()
+    def can_edit(self):
+        user=self.current_user()
+        return bool(user and user['role'] in ('admin','marketing') and self.legacy_member())
     def is_admin(self):return bool(self.current_user() and self.current_user()['role']=='admin')
     def display_ok(self):
         query=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
@@ -295,7 +300,6 @@ class Handler(SimpleHTTPRequestHandler):
                     if not (3<=len(username)<=48 and all(c.isalnum() or c in '._-' for c in username) and username!='admin' and len(password)>=12 and role in ('marketing','viewer')):raise ValueError()
                     with DB_LOCK,sqlite3.connect(DB_PATH) as db:
                         db.execute('INSERT INTO staff(username,password_hash,role,created_at) VALUES(?,?,?,?)',(username,hash_password(password),role,int(time.time())))
-                    tenant_meta.init(DB_PATH)
                     return self.json_response(201,{'ok':True,'username':username,'role':role})
                 except sqlite3.IntegrityError:return self.json_response(409,{'error':'username exists'})
                 except (ValueError,TypeError,KeyError):return self.json_response(400,{'error':'invalid user'})
@@ -334,8 +338,9 @@ class Handler(SimpleHTTPRequestHandler):
         path=self.path.split('?')[0]
         segments=path.strip('/').split('/')
         if len(segments)==2 and segments[0]=='company':
-            if not self.admin_ok():return self.send_error(403)
-            if not tenant_meta.member_role(DB_PATH,segments[1],self.current_user()['username']):return self.send_error(403)
+            user=self.current_user()
+            if not user:return self.send_error(403)
+            if not tenant_meta.member_role(DB_PATH,segments[1],user['username']):return self.send_error(403)
             return self.no_cache_html((ROOT/'company-dashboard.html').read_text())
         if len(segments)==2 and segments[0]=='screen':
             if not tenant_screens.screen_org(DB_PATH,segments[1]):return self.send_error(404)
@@ -345,7 +350,7 @@ class Handler(SimpleHTTPRequestHandler):
             if not self.is_admin():return self.send_error(403)
             return self.no_cache_html((ROOT/'platform-integrations.html').read_text())
         if self.path.split('?')[0]=='/organisations':
-            if not self.admin_ok():
+            if not self.current_user():
                 self.send_response(302);self.send_header('Location','/login');self.end_headers();return
             return self.no_cache_html((ROOT/'organisations.html').read_text())
         if tenant_meta.route(self,DB_PATH,'GET'):return
