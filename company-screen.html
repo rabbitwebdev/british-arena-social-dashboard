@@ -1,0 +1,96 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Social Wall TV</title><style>
+:root{--bg:#0B1F55;--accent:#f04438}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden}
+body{background:var(--bg);color:white;font:clamp(15px,1.7vw,30px)/1.45 system-ui,sans-serif}
+#stage{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;text-align:center;padding:3vw 5vw;gap:2vw}
+#logo{max-height:15vh;max-width:40vw;object-fit:contain}
+h1{font-size:clamp(42px,5vw,100px);line-height:1.05;margin:0;font-weight:900}
+h2{font-size:clamp(18px,2vw,40px);margin:0;font-weight:500}
+#stats{display:flex;justify-content:center;gap:6vw;flex-wrap:wrap}
+.count{font-size:clamp(56px,9vw,170px);line-height:1;font-weight:900}
+.metric{font-size:clamp(17px,1.7vw,32px);font-weight:700;margin-top:12px}
+.metric b{color:var(--accent)}
+#slides{width:100%;min-height:28vh;display:flex;align-items:center;justify-content:center}
+#slideTitle{font-weight:900;font-size:clamp(30px,3.5vw,70px);margin:0}
+#slideDesc{font-size:clamp(18px,1.7vw,35px)}
+#slideImg{object-fit:contain;max-height:30vh;max-width:45vw}
+#slideContent{display:flex;gap:4vw;align-items:center;justify-content:center}
+#footer{font-size:clamp(13px,1.2vw,22px);opacity:.85}
+#celebration{position:fixed;inset:20% 5% auto;text-align:center;font-size:clamp(28px,5vw,95px);font-weight:900;color:white;text-shadow:0 4px 35px var(--accent);z-index:3;pointer-events:none}
+#celebration.active{animation:appear 2.5s ease forwards}
+@keyframes appear{0%{opacity:0;transform:translateY(30px) scale(.8)}
+20%{opacity:1;transform:translateY(0) scale(1.1)}
+80%{opacity:1}100%{opacity:0;transform:translateY(-30px)}}
+#status{position:fixed;bottom:1vw;right:1vw;color:#fff9;font-size:12px}
+</style>
+<div id="stage">
+<img id="logo" hidden alt="Company logo">
+<header><h1 id="title">Social Wall</h1><h2 id="subtitle">Follow us on social media</h2></header>
+<div id="stats"><section><div class="count" id="facebook">—</div><div class="metric">FACEBOOK <b>●</b></div></section>
+<section><div class="count" id="instagram">—</div><div class="metric">INSTAGRAM <b>●</b></div></section></div>
+<section id="slides"><div id="slideContent"><img id="slideImg" hidden alt=""><div><div id="slideTitle"></div><div id="slideDesc"></div></div></div></section>
+<footer id="footer">Follow us for more updates</footer>
+</div><div id="celebration" aria-live="polite"></div><div id="status"></div>
+<script>
+"use strict";
+const key=decodeURIComponent(location.pathname.split("/")[2]||"");
+const endpoint="/api/screens/"+encodeURIComponent(key);
+const $=id=>document.getElementById(id);
+let version=null,previous=null,settings=null,slideIndex=0,nextSlideAt=0,initialized=false;
+function allowImage(src){return typeof src==="string" && /^https:\/\//i.test(src)}
+function setImage(element,src){
+ if(allowImage(src)){element.src=src;element.hidden=false}
+ else{element.removeAttribute("src");element.hidden=true}
+}
+function showSlide(){
+ const slides=settings?.slides||[];
+ if(!slides.length){$("slides").hidden=true;return}
+ $("slides").hidden=false;
+ const slide=slides[slideIndex%slides.length];
+ $("slideTitle").textContent=slide.title||"";
+ $("slideDesc").textContent=slide.description||"";
+ setImage($("slideImg"),slide.image);
+ nextSlideAt=Date.now()+(slide.duration||settings.rotation_seconds||12)*1000;
+ slideIndex=(slideIndex+1)%slides.length;
+}
+function celebrate(channel,difference){
+ if(!settings||settings.animation==="none"||difference<=0)return;
+ const message=settings.animation==="football"?"⚽":settings.animation==="confetti"?"🎉":"✨";
+ const target=$("celebration");target.classList.remove("active");void target.offsetWidth;
+ target.textContent=message+" +"+difference+" "+channel+" followers!";
+ target.classList.add("active");
+}
+async function refresh(){
+ try{
+ const response=await fetch(endpoint,{cache:"no-store",referrerPolicy:"no-referrer"});
+ if(response.status===404){$("title").textContent="Display link expired";$("status").textContent="Contact the company administrator";return}
+ if(!response.ok)throw Error("Unable to load screen");
+ const data=await response.json();
+ if(data.version!==version){
+   settings=data.settings;version=data.version;
+   document.documentElement.style.setProperty("--bg",settings.background||"#0B1F55");
+   document.documentElement.style.setProperty("--accent",settings.accent||"#f04438");
+   $("title").textContent=settings.title||"Social Wall";
+   $("subtitle").textContent=settings.subtitle||"";
+   $("footer").textContent=settings.newsletter_url?"Join our newsletter · "+settings.newsletter_url:"Follow us for more updates";
+   setImage($("logo"),settings.logo);
+   slideIndex=0;showSlide();
+ }
+ const social=data.social||{};
+ const fb=social.facebook,ig=social.instagram;
+ $("facebook").textContent=fb==null?"—":Number(fb).toLocaleString();
+ $("instagram").textContent=ig==null?"—":Number(ig).toLocaleString();
+ // Never manufacture follow events. Only show changes after a successful sync
+ // and only after the first screen fetch.
+ if(initialized&&social.status==="connected"&&previous?.status==="connected"){
+   if(fb!=null&&previous.facebook!=null&&fb>previous.facebook)celebrate("Facebook",fb-previous.facebook);
+   if(ig!=null&&previous.instagram!=null&&ig>previous.instagram)celebrate("Instagram",ig-previous.instagram);
+ }
+ previous=social;initialized=true;
+ $("status").textContent=social.status==="needs_attention"?"Social connection needs attention":"";
+ }catch(e){$("status").textContent="Connection interrupted; retrying automatically"}
+}
+setInterval(()=>{if(settings?.slides?.length&&Date.now()>nextSlideAt)showSlide()},1000);
+setInterval(refresh,15000);refresh();
+</script></html>
