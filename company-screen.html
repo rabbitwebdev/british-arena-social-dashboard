@@ -57,9 +57,16 @@ const key=decodeURIComponent(location.pathname.split("/")[2]||"");
 const endpoint="/api/screens/"+encodeURIComponent(key);
 const $=id=>document.getElementById(id);
 let version=null,previous=null,settings=null,slideIndex=0,nextSlideAt=0,initialized=false;
-function allowImage(src){return typeof src==="string" && /^https:\/\//i.test(src)}
+function imageSource(value){
+ if(typeof value!=="string")return "";
+ if(/^media:[a-f0-9]{32}$/.test(value)){
+   return "/api/screens/"+encodeURIComponent(key)+"/media/"+value.slice(6);
+ }
+ return /^https:\/\//i.test(value)?value:"";
+}
 function setImage(element,src){
- if(allowImage(src)){element.src=src;element.hidden=false}
+ const url=imageSource(src);
+ if(url){element.src=url;element.hidden=false}
  else{element.removeAttribute("src");element.hidden=true}
 }
 function showSlide(){
