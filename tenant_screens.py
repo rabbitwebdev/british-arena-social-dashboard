@@ -140,10 +140,14 @@ def connection_health(path,org):
         row=db.execute("""SELECT facebook_count,instagram_count,last_success_at,
                  last_attempt_at,status FROM company_social_counts WHERE org_id=?""",(org,)).fetchone()
     connected=tenant_meta.connections(path,org)
+    # A revoked/unlinked company must never display cached follower counts.
+    if not connected:
+        return {"accounts":[],"facebook":None,"instagram":None,
+                "last_success_at":None,"last_attempt_at":None,"status":"not_connected"}
     return {"accounts":connected,"facebook":row[0] if row else None,
             "instagram":row[1] if row else None,"last_success_at":row[2] if row else None,
             "last_attempt_at":row[3] if row else None,
-            "status":row[4] if row else ("pending" if connected else "not_connected")}
+            "status":row[4] if row else "pending"}
 
 def sync_org(path,org):
     """Poll a specific organisation. Do not log tokens, response payloads or URLs."""
