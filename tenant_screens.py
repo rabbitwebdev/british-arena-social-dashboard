@@ -16,7 +16,7 @@ import tenant_meta
 import meta_connect
 
 ALLOWED={"title","subtitle","accent","background","logo","facebook_url",
-         "instagram_url","newsletter_url","slides","animation","rotation_seconds","qr_enabled","qr_facebook","qr_instagram","qr_position","qr_size","show_facebook_followers","show_instagram_followers","show_facebook_likes"}
+         "instagram_url","newsletter_url","slides","animation","rotation_seconds","qr_enabled","qr_facebook","qr_instagram","qr_position","qr_size","show_facebook_followers","show_instagram_followers","show_facebook_likes","targets"}
 MAX_CONFIG=100000
 DEFAULT={"title":"My Social Wall","subtitle":"Follow us on social media",
          "accent":"#f04438","background":"#0B1F55","logo":"",
@@ -25,7 +25,7 @@ DEFAULT={"title":"My Social Wall","subtitle":"Follow us on social media",
          "qr_enabled":False,"qr_facebook":True,"qr_instagram":False,
          "qr_position":"below","qr_size":180,
          "show_facebook_followers":True,"show_instagram_followers":True,
-         "show_facebook_likes":False}
+         "show_facebook_likes":False,"targets":{}}
 ANIMATIONS={"celebrate","football","confetti","none"}
 
 def _db(path):
@@ -94,6 +94,8 @@ def _check_config(config):
             raise ValueError("Add a "+platform.title()+" page URL before enabling its QR code")
     if type(clean["rotation_seconds"]) is not int or not 5<=clean["rotation_seconds"]<=120:
         raise ValueError("Invalid rotation")
+    import tenant_targets
+    clean["targets"]=tenant_targets.validate(clean["targets"])
     if not isinstance(clean["slides"],list) or len(clean["slides"])>20:
         raise ValueError("Too many slides")
     for slide in clean["slides"]:
@@ -169,6 +171,8 @@ def publish(path,org):
               SET published=draft,published_version=published_version+1,
                   updated_at=? WHERE org_id=?""",(int(time.time()),org))
             version=db.execute("SELECT published_version FROM company_screen_config WHERE org_id=?",(org,)).fetchone()[0]
+    import tenant_targets
+    tenant_targets.after_publish(path,org,get_config(path,org,True)["settings"])
     return version
 
 def rotate_screen_key(path,org):
@@ -247,6 +251,9 @@ def sync_org(path,org):
                last_success_at=CASE WHEN excluded.status='connected' THEN excluded.last_success_at ELSE company_social_counts.last_success_at END,
                last_attempt_at=excluded.last_attempt_at,status=excluded.status""",
                (org,facebook,instagram,now if status=="connected" else None,now,status,facebook_likes))
+    if status=="connected":
+        import tenant_targets
+        tenant_targets.after_sync(path,org,{"facebook":facebook,"instagram":instagram,"facebook_likes":facebook_likes})
 
 def sync_interval():
     """Poll interval, permitting 5s only for explicitly enabled staging tests.
@@ -305,6 +312,8 @@ def handler_route(handler,path,method):
             handler.json_response(404,{"error":"screen not found"});return True
         state=get_config(path,org,True)
         state["social"]=connection_health(path,org)
+        import tenant_targets
+        state["milestones"]=tenant_targets.events(path,org,state["settings"])
         # Public screen response must not list Page IDs or names beyond display config.
         state["social"].pop("accounts",None)
         handler.json_response(200,state)
