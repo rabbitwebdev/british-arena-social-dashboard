@@ -951,7 +951,7 @@ window.arenaCloudReady=(async()=>{
     function previewNewsletterSignup(){sendPreviewState();sendPreviewAction('event','newsletter');}
     async function pollNewsletterEvents(){
       try{
-        const r=await fetch('/api/newsletter-events?after='+encodeURIComponent(newsletterEventCursor),{cache:'no-store'});
+        const r=await fetch('/api/newsletter-events?after='+encodeURIComponent(newsletterEventCursor)+(location.pathname.startsWith('/display')?'&'+new URLSearchParams(location.search).toString():''),{cache:'no-store'});
         if(!r.ok) return;
         const d=await r.json();
         if(!newsletterEventCursor){newsletterEventCursor=d.latest||0;return}
@@ -1053,7 +1053,7 @@ window.arenaCloudReady=(async()=>{
 
     async function poll(){
       try{
-        const r=await fetch('/api/counts',{cache:'no-store'});
+        const r=await fetch('/api/counts'+(location.pathname.startsWith('/display')?location.search:''),{cache:'no-store'});
         if(!r.ok) throw Error();
         const d=await r.json();
         for(const ch of ['instagram','facebook']){
