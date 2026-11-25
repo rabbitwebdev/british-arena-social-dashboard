@@ -64,9 +64,17 @@ def init(path):
                        ("british-arena","British Arena",int(time.time())))
             db.execute("INSERT OR IGNORE INTO organisation_members VALUES (?,?,?)",
                        ("british-arena","admin","owner"))
-            # Initial legacy staff memberships were seeded in Phase 1.
-            # Never grant *new* staff British Arena membership implicitly.
-            # Platform admins assign each new account to its intended company.
+            # Migrate the original Arena staff once; new company staff must
+            # always receive explicit company membership afterwards.
+            db.execute("""CREATE TABLE IF NOT EXISTS tenant_migrations(
+                migration TEXT PRIMARY KEY, applied_at INTEGER NOT NULL)""")
+            if not db.execute("SELECT 1 FROM tenant_migrations WHERE migration=?",
+                              ("legacy_staff_v1",)).fetchone():
+                for username, staff_role in db.execute("SELECT username,role FROM staff").fetchall():
+                    db.execute("INSERT OR IGNORE INTO organisation_members VALUES (?,?,?)",
+                               ("british-arena",username,"manager" if staff_role=="marketing" else "viewer"))
+                db.execute("INSERT INTO tenant_migrations VALUES (?,?)",
+                           ("legacy_staff_v1",int(time.time())))
 
 
 def memberships(path, username):
