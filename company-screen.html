@@ -259,8 +259,8 @@ if(previewMode){
      countdown_message:item.countdown_message
    }},{status:"connected",[payload.channel]:fakeCount});
  });
- window.parent.postMessage({type:"social-milestone-preview-ready"},location.origin);
- refresh();
+ refresh().finally(()=>window.parent.postMessage(
+   {type:"social-milestone-preview-ready"},location.origin));
 }else{
  setInterval(refresh,3000);refresh();
 }
