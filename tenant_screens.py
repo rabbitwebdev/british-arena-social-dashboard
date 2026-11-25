@@ -149,6 +149,9 @@ def get_config(path,org,published=False):
 
 def save_config(path,org,config):
     clean=_check_config(config)
+    # Uploaded media references must belong to the same company and exist.
+    import tenant_media
+    tenant_media.validate_settings(path,org,clean)
     with closing(_db(path)) as db:
         with db:
             _ensure(db,org)
