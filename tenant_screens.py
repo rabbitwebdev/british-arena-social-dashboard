@@ -16,14 +16,16 @@ import tenant_meta
 import meta_connect
 
 ALLOWED={"title","subtitle","accent","background","logo","facebook_url",
-         "instagram_url","newsletter_url","slides","animation","rotation_seconds","qr_enabled","qr_facebook","qr_instagram","qr_position","qr_size"}
+         "instagram_url","newsletter_url","slides","animation","rotation_seconds","qr_enabled","qr_facebook","qr_instagram","qr_position","qr_size","show_facebook_followers","show_instagram_followers","show_facebook_likes"}
 MAX_CONFIG=100000
 DEFAULT={"title":"My Social Wall","subtitle":"Follow us on social media",
          "accent":"#f04438","background":"#0B1F55","logo":"",
          "facebook_url":"","instagram_url":"","newsletter_url":"",
          "slides":[],"animation":"celebrate","rotation_seconds":12,
          "qr_enabled":False,"qr_facebook":True,"qr_instagram":False,
-         "qr_position":"below","qr_size":180}
+         "qr_position":"below","qr_size":180,
+         "show_facebook_followers":True,"show_instagram_followers":True,
+         "show_facebook_likes":False}
 ANIMATIONS={"celebrate","football","confetti","none"}
 
 def _db(path):
@@ -52,6 +54,10 @@ def init(path):
               status TEXT NOT NULL DEFAULT 'not_connected',
               FOREIGN KEY(org_id) REFERENCES organisations(id));
             """)
+            # Existing tenant databases gain this column without losing prior counts.
+            columns={col[1] for col in db.execute("PRAGMA table_info(company_social_counts)")}
+            if "facebook_likes" not in columns:
+                db.execute("ALTER TABLE company_social_counts ADD COLUMN facebook_likes INTEGER")
 
 def _check_config(config):
     if not isinstance(config,dict) or set(config)-ALLOWED:
@@ -66,7 +72,8 @@ def _check_config(config):
             raise ValueError("Invalid colour")
     if clean["animation"] not in ANIMATIONS:
         raise ValueError("Unknown animation")
-    for field in ("qr_enabled","qr_facebook","qr_instagram"):
+    for field in ("qr_enabled","qr_facebook","qr_instagram",
+                  "show_facebook_followers","show_instagram_followers","show_facebook_likes"):
         if type(clean[field]) is not bool:
             raise ValueError("Invalid "+field)
     if clean["qr_enabled"] and not (clean["qr_facebook"] or clean["qr_instagram"]):
@@ -183,14 +190,14 @@ def screen_org(path,raw):
 def connection_health(path,org):
     with closing(_db(path)) as db:
         row=db.execute("""SELECT facebook_count,instagram_count,last_success_at,
-                 last_attempt_at,status FROM company_social_counts WHERE org_id=?""",(org,)).fetchone()
+                 last_attempt_at,status,facebook_likes FROM company_social_counts WHERE org_id=?""",(org,)).fetchone()
     connected=tenant_meta.connections(path,org)
     # A revoked/unlinked company must never display cached follower counts.
     if not connected:
-        return {"accounts":[],"facebook":None,"instagram":None,
+        return {"accounts":[],"facebook":None,"instagram":None,"facebook_likes":None,
                 "last_success_at":None,"last_attempt_at":None,"status":"not_connected"}
     return {"accounts":connected,"facebook":row[0] if row else None,
-            "instagram":row[1] if row else None,"last_success_at":row[2] if row else None,
+            "instagram":row[1] if row else None,"facebook_likes":row[5] if row else None,"last_success_at":row[2] if row else None,
             "last_attempt_at":row[3] if row else None,
             "status":row[4] if row else "pending"}
 
@@ -205,35 +212,38 @@ def sync_org(path,org):
             with db:
                 db.execute("""INSERT INTO company_social_counts(org_id,status,last_attempt_at)
                     VALUES (?,?,?) ON CONFLICT(org_id) DO UPDATE
-                    SET status='not_connected',facebook_count=NULL,instagram_count=NULL,
+                    SET status='not_connected',facebook_count=NULL,instagram_count=NULL,facebook_likes=NULL,
                     last_attempt_at=excluded.last_attempt_at""",(org,"not_connected",int(time.time())))
         return
     page_id,ig_id,ciphertext=row
     now=int(time.time())
-    facebook=instagram=None
+    facebook=instagram=facebook_likes=None
     status="connected"
     try:
         token=tenant_meta.token_cipher().decrypt(ciphertext.encode()).decode()
         data=meta_connect.graph(str(page_id),{"fields":"followers_count,fan_count"},token)
-        fb=data.get("followers_count",data.get("fan_count"))
+        fb=data.get("followers_count")
         if fb is not None: facebook=int(fb)
+        likes=data.get("fan_count")
+        if likes is not None: facebook_likes=int(likes)
         if ig_id:
             ig=meta_connect.graph(str(ig_id),{"fields":"followers_count"},token)
             if ig.get("followers_count") is not None:instagram=int(ig["followers_count"])
-        if facebook is None and instagram is None:status="unavailable"
+        if facebook is None and instagram is None and facebook_likes is None:status="unavailable"
     except Exception:
         status="needs_attention"
     with closing(_db(path)) as db:
         with db:
             db.execute("""INSERT INTO company_social_counts
-             (org_id,facebook_count,instagram_count,last_success_at,last_attempt_at,status)
-             VALUES (?,?,?,?,?,?)
+             (org_id,facebook_count,instagram_count,last_success_at,last_attempt_at,status,facebook_likes)
+             VALUES (?,?,?,?,?,?,?)
              ON CONFLICT(org_id) DO UPDATE SET
                facebook_count=CASE WHEN excluded.status='connected' THEN excluded.facebook_count ELSE company_social_counts.facebook_count END,
                instagram_count=CASE WHEN excluded.status='connected' THEN excluded.instagram_count ELSE company_social_counts.instagram_count END,
+               facebook_likes=CASE WHEN excluded.status='connected' THEN excluded.facebook_likes ELSE company_social_counts.facebook_likes END,
                last_success_at=CASE WHEN excluded.status='connected' THEN excluded.last_success_at ELSE company_social_counts.last_success_at END,
                last_attempt_at=excluded.last_attempt_at,status=excluded.status""",
-               (org,facebook,instagram,now if status=="connected" else None,now,status))
+               (org,facebook,instagram,now if status=="connected" else None,now,status,facebook_likes))
 
 def sync_interval():
     """Poll interval, permitting 5s only for explicitly enabled staging tests.
