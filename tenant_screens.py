@@ -9,18 +9,21 @@ import os
 import secrets
 import sqlite3
 import time
+from urllib.parse import urlsplit
 from contextlib import closing
 
 import tenant_meta
 import meta_connect
 
 ALLOWED={"title","subtitle","accent","background","logo","facebook_url",
-         "instagram_url","newsletter_url","slides","animation","rotation_seconds"}
+         "instagram_url","newsletter_url","slides","animation","rotation_seconds","qr_enabled","qr_facebook","qr_instagram","qr_position","qr_size"}
 MAX_CONFIG=100000
 DEFAULT={"title":"My Social Wall","subtitle":"Follow us on social media",
          "accent":"#f04438","background":"#0B1F55","logo":"",
          "facebook_url":"","instagram_url":"","newsletter_url":"",
-         "slides":[],"animation":"celebrate","rotation_seconds":12}
+         "slides":[],"animation":"celebrate","rotation_seconds":12,
+         "qr_enabled":False,"qr_facebook":True,"qr_instagram":True,
+         "qr_position":"below","qr_size":180}
 ANIMATIONS={"celebrate","football","confetti","none"}
 
 def _db(path):
@@ -63,6 +66,23 @@ def _check_config(config):
             raise ValueError("Invalid colour")
     if clean["animation"] not in ANIMATIONS:
         raise ValueError("Unknown animation")
+    for field in ("qr_enabled","qr_facebook","qr_instagram"):
+        if type(clean[field]) is not bool:
+            raise ValueError("Invalid "+field)
+    if clean["qr_position"] not in ("below","side"):
+        raise ValueError("Unknown QR placement")
+    if type(clean["qr_size"]) is not int or not 120<=clean["qr_size"]<=280:
+        raise ValueError("Invalid QR size")
+    for platform, field in (("facebook","facebook_url"),("instagram","instagram_url")):
+        url=clean[field].strip()
+        if url:
+            parsed=urlsplit(url)
+            hostname=(parsed.hostname or "").lower()
+            allowed={"facebook.com","www.facebook.com","m.facebook.com","fb.com"} if platform=="facebook" else {"instagram.com","www.instagram.com"}
+            if parsed.scheme!="https" or hostname not in allowed or parsed.username or parsed.password or parsed.port:
+                raise ValueError("Enter an official HTTPS "+platform.title()+" page URL")
+        if clean["qr_enabled"] and clean["qr_"+platform] and not url:
+            raise ValueError("Add a "+platform.title()+" page URL before enabling its QR code")
     if type(clean["rotation_seconds"]) is not int or not 5<=clean["rotation_seconds"]<=120:
         raise ValueError("Invalid rotation")
     if not isinstance(clean["slides"],list) or len(clean["slides"])>20:
@@ -78,6 +98,29 @@ def _check_config(config):
     if len(json.dumps(clean))>MAX_CONFIG:
         raise ValueError("Configuration too large")
     return clean
+
+
+def qr_target(settings,network):
+    """Only published, enabled, official social-page URLs can be encoded."""
+    if network not in ("facebook","instagram") or not settings.get("qr_enabled",False):
+        return None
+    if not settings.get("qr_"+network, True):
+        return None
+    url=settings.get(network+"_url","")
+    try:
+        config=_check_config(settings)
+    except (ValueError,TypeError):
+        return None
+    return config[network+"_url"].strip() or None
+
+def qr_svg(url):
+    """Render a local, offline, scannable SVG QR. No third-party request."""
+    import io
+    import segno
+    output=io.BytesIO()
+    segno.make(url,error="h").save(output,kind="svg",scale=6,
+                                  border=4,light="#ffffff",dark="#000000")
+    return output.getvalue()
 
 def _ensure(db,org):
     db.execute("""INSERT OR IGNORE INTO company_screen_config
