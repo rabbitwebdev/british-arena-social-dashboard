@@ -433,9 +433,11 @@ if __name__=='__main__':
     threading.Thread(target=poll_demo if demo else poll_live,daemon=True).start()
     def company_sync_loop():
         while True:
-            try:tenant_screens.poll_all(DB_PATH)
-            except Exception:pass
-            time.sleep(tenant_screens.sync_interval())
+            failures=0
+            try:failures=tenant_screens.poll_all(DB_PATH)
+            except Exception:failures=1
+            # Avoid rapid retrying when Meta throttles or a token needs attention.
+            time.sleep(max(30,tenant_screens.sync_interval()) if failures else tenant_screens.sync_interval())
     threading.Thread(target=company_sync_loop,daemon=True).start()
     print(f'Arena dashboard: http://localhost:8765 ({"DEMO" if demo else "LIVE"} mode)',flush=True)
     ThreadingHTTPServer(('0.0.0.0',int(os.getenv('PORT','8765'))),Handler).serve_forever()
