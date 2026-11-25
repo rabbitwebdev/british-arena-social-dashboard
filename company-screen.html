@@ -7,7 +7,16 @@ body{background:var(--bg);color:white;font:clamp(15px,1.7vw,30px)/1.45 system-ui
 #logo{max-height:15vh;max-width:40vw;object-fit:contain}
 h1{font-size:clamp(42px,5vw,100px);line-height:1.05;margin:0;font-weight:900}
 h2{font-size:clamp(18px,2vw,40px);margin:0;font-weight:500}
+#socialArea{width:100%;display:flex;align-items:center;justify-content:center;gap:3vw;flex-direction:column}
+#socialArea.side{flex-direction:row;justify-content:space-evenly}
+#socialArea.side #stats{flex:1;gap:3vw}
 #stats{display:flex;justify-content:center;gap:6vw;flex-wrap:wrap}
+#qr-codes{display:flex;align-items:center;justify-content:center;gap:2vw}
+.qr-card{display:flex;flex-direction:column;align-items:center;gap:8px}
+.qr-card img{width:var(--qr-size,180px);height:var(--qr-size,180px);max-width:25vw;max-height:28vh;object-fit:contain;background:#fff;border:8px solid white}
+.qr-card span{font-size:clamp(14px,1.4vw,24px);font-weight:750}
+#qr-codes[hidden]{display:none}
+@media(max-width:950px){#socialArea.side{flex-direction:column}#qr-codes{gap:1vw}}
 .count{font-size:clamp(56px,9vw,170px);line-height:1;font-weight:900}
 .metric{font-size:clamp(17px,1.7vw,32px);font-weight:700;margin-top:12px}
 .metric b{color:var(--accent)}
@@ -27,8 +36,13 @@ h2{font-size:clamp(18px,2vw,40px);margin:0;font-weight:500}
 <div id="stage">
 <img id="logo" hidden alt="Company logo">
 <header><h1 id="title">Social Wall</h1><h2 id="subtitle">Follow us on social media</h2></header>
+<div id="socialArea">
 <div id="stats"><section><div class="count" id="facebook">—</div><div class="metric">FACEBOOK <b>●</b></div></section>
 <section><div class="count" id="instagram">—</div><div class="metric">INSTAGRAM <b>●</b></div></section></div>
+<div id="qr-codes" hidden>
+<div class="qr-card" id="qr-facebook" hidden><img id="qr-facebook-image" alt="Scan to follow on Facebook"><span>Scan for Facebook</span></div>
+<div class="qr-card" id="qr-instagram" hidden><img id="qr-instagram-image" alt="Scan to follow on Instagram"><span>Scan for Instagram</span></div>
+</div></div>
 <section id="slides"><div id="slideContent"><img id="slideImg" hidden alt=""><div><div id="slideTitle"></div><div id="slideDesc"></div></div></div></section>
 <footer id="footer">Follow us for more updates</footer>
 </div><div id="celebration" aria-live="polite"></div><div id="status"></div>
@@ -54,6 +68,25 @@ function showSlide(){
  nextSlideAt=Date.now()+(slide.duration||settings.rotation_seconds||12)*1000;
  slideIndex=(slideIndex+1)%slides.length;
 }
+function updateSocialQr(){
+ const container=$("qr-codes");
+ const enabled=!!settings?.qr_enabled;
+ let count=0;
+ $("socialArea").classList.toggle("side",enabled&&settings.qr_position==="side");
+ document.documentElement.style.setProperty("--qr-size",(settings?.qr_size||180)+"px");
+ for(const network of ["facebook","instagram"]){
+   const card=$("qr-"+network);
+   const url=settings?.[network+"_url"];
+   const visible=enabled&&settings["qr_"+network]===true&&typeof url==="string"&&url.startsWith("https://");
+   card.hidden=!visible;
+   if(visible){
+     const img=$("qr-"+network+"-image");
+     img.src="/api/screens/"+encodeURIComponent(key)+"/qr/"+network+"?v="+encodeURIComponent(version);
+     count++;
+   }else $("qr-"+network+"-image").removeAttribute("src");
+ }
+ container.hidden=!count;
+}
 function celebrate(channel,difference){
  if(!settings||settings.animation==="none"||difference<=0)return;
  const message=settings.animation==="football"?"⚽":settings.animation==="confetti"?"🎉":"✨";
@@ -75,6 +108,7 @@ async function refresh(){
    $("subtitle").textContent=settings.subtitle||"";
    $("footer").textContent=settings.newsletter_url?"Join our newsletter · "+settings.newsletter_url:"Follow us for more updates";
    setImage($("logo"),settings.logo);
+   updateSocialQr();
    slideIndex=0;showSlide();
  }
  const social=data.social||{};
