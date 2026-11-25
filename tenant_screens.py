@@ -58,6 +58,8 @@ def init(path):
             columns={col[1] for col in db.execute("PRAGMA table_info(company_social_counts)")}
             if "facebook_likes" not in columns:
                 db.execute("ALTER TABLE company_social_counts ADD COLUMN facebook_likes INTEGER")
+    import tenant_targets
+    tenant_targets.init(path)
 
 def _check_config(config):
     if not isinstance(config,dict) or set(config)-ALLOWED:
