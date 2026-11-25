@@ -92,5 +92,6 @@ async function refresh(){
  }catch(e){$("status").textContent="Connection interrupted; retrying automatically"}
 }
 setInterval(()=>{if(settings?.slides?.length&&Date.now()>nextSlideAt)showSlide()},1000);
-setInterval(refresh,15000);refresh();
+// The TV polls its own cached backend, not Meta. Fast checks do not consume Graph API quota.
+setInterval(refresh,3000);refresh();
 </script></html>
