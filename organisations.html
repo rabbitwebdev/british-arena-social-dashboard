@@ -43,6 +43,11 @@ async function reload(){
  for(const org of items){
    const section=el("section",undefined,"card");
    section.append(el("h2",org.name),el("p","Your role: "+org.role,"muted"));
+   const dashboard=document.createElement("a");
+   dashboard.href="/company/"+encodeURIComponent(org.id);
+   dashboard.textContent="Manage dashboard & TV screen";
+   dashboard.style.display="inline-block";dashboard.style.marginBottom="16px";
+   section.append(dashboard);
    const body=el("div");section.append(body);
    const render=async()=>{
      body.replaceChildren();
