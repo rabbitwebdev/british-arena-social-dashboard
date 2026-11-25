@@ -142,6 +142,69 @@ class MilestoneTests(unittest.TestCase):
         self.assertEqual(self.events()["facebook"]["event_id"],first)
         self.assertEqual(self.events()["facebook"]["message"],"New wording, same goal")
 
+    def test_countdown_settings_persist_and_do_not_change_goal_state(self):
+        settings=tenant_screens.get_config(self.db,self.org)["settings"]
+        settings["targets"]={"facebook":{
+            "enabled":True,"goal":1300,
+            "message":"Drinks on us!","animation":"confetti",
+            "countdown_enabled":True,
+            "countdown_message":"Only {remaining} followers and you get happy hour!"}}
+        tenant_screens.save_config(self.db,self.org,settings)
+        tenant_screens.publish(self.db,self.org)
+        self.poll(fb=1278)
+        target=self.events()["facebook"]
+        self.assertEqual(target["goal"],1300)
+        self.assertTrue(target["countdown_enabled"])
+        self.assertEqual(target["countdown_message"],"Only {remaining} followers and you get happy hour!")
+        self.assertEqual(target["countdown_message"].replace("{remaining}",str(target["goal"]-1278)),
+                         "Only 22 followers and you get happy hour!")
+        self.assertIsNone(target["event_id"])
+        self.poll(fb=1300)
+        reached=self.events()["facebook"]
+        self.assertEqual(reached["state"],"reached")
+        self.assertIsNotNone(reached["event_id"])
+        self.poll(fb=1302)
+        self.assertEqual(self.events()["facebook"]["event_id"],reached["event_id"])
+
+    def test_countdowns_are_independent_and_optional(self):
+        settings=tenant_screens.get_config(self.db,self.org)["settings"]
+        settings["targets"]={
+            "facebook":{"enabled":True,"goal":1300,"message":"FB","animation":"confetti",
+                        "countdown_enabled":True,"countdown_message":"{remaining} to go!"},
+            "instagram":{"enabled":True,"goal":650,"message":"IG","animation":"football",
+                         "countdown_enabled":False,"countdown_message":"{remaining} more follows"},
+            "facebook_likes":{"enabled":True,"goal":1000,"message":"Likes","animation":"fireworks",
+                             "countdown_enabled":True,"countdown_message":"Just {remaining} likes to go!"}
+        }
+        tenant_screens.save_config(self.db,self.org,settings)
+        tenant_screens.publish(self.db,self.org)
+        self.poll(fb=1280,ig=600,likes=999)
+        goals=self.events()
+        self.assertTrue(goals["facebook"]["countdown_enabled"])
+        self.assertFalse(goals["instagram"]["countdown_enabled"])
+        self.assertTrue(goals["facebook_likes"]["countdown_enabled"])
+        self.assertEqual(tenant_targets.events(self.db,self.other,
+                          tenant_screens.get_config(self.db,self.other,True)["settings"]),{})
+
+    def test_countdown_template_validation(self):
+        base={"enabled":True,"goal":1300,"message":"Reached","animation":"confetti",
+              "countdown_enabled":True}
+        bad=[
+            {**base,"countdown_message":"Only 22 followers"},
+            {**base,"countdown_message":"{remaining} and {remaining} again"},
+            {**base,"countdown_message":""},
+            {**base,"countdown_message":"x"*241},
+            {**base,"countdown_enabled":"yes","countdown_message":"{remaining}"},
+            {**base,"enabled":False,"countdown_message":"{remaining}"}
+        ]
+        for target in bad:
+            with self.subTest(target=target):
+                with self.assertRaises(ValueError):
+                    tenant_targets.validate({"facebook":target})
+        compatible=tenant_targets.validate({"facebook":{"enabled":True,"goal":1300,
+                 "message":"Reached","animation":"confetti"}})
+        self.assertFalse(compatible["facebook"]["countdown_enabled"])
+
     def test_invalid_target_rejected_without_mutating_config(self):
         base=tenant_screens.get_config(self.db,self.org)["settings"]
         bad=[
