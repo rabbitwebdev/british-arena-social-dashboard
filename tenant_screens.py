@@ -190,6 +190,19 @@ def sync_org(path,org):
                last_attempt_at=excluded.last_attempt_at,status=excluded.status""",
                (org,facebook,instagram,now if status=="connected" else None,now,status))
 
+def sync_interval():
+    """Interval between server-side Meta checks, in seconds.
+
+    Never poll Meta more often than every 15 seconds. Each business account
+    may be subject to API throttling; raise this interval as tenancy grows.
+    """
+    try:
+        raw=int(os.getenv("SOCIAL_SYNC_INTERVAL_SECONDS","30"))
+    except ValueError:
+        raw=30
+    return max(15,min(raw,300))
+
+
 def poll_all(path):
     with closing(_db(path)) as db:
         orgs=[row[0] for row in db.execute("SELECT DISTINCT organisation_id FROM tenant_meta_connections").fetchall()]
