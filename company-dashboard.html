@@ -136,12 +136,38 @@ function renderTargets(){
    const opt=document.createElement("option");opt.value=id;opt.textContent=title;anim.append(opt);
   }
   anim.value=value.animation||"confetti";animLabel.append(anim);
+  const countdownToggleLabel=document.createElement("label");
+  const countdownToggle=document.createElement("input");
+  countdownToggle.type="checkbox";countdownToggle.checked=value.countdown_enabled===true;
+  countdownToggle.style.cssText="display:inline;width:auto;margin-right:8px";
+  countdownToggle.disabled=!editable;
+  countdownToggleLabel.append(countdownToggle,document.createTextNode("Show live countdown on TV"));
+  const countdownTextLabel=document.createElement("label");
+  countdownTextLabel.textContent="Countdown message (use {remaining} for the live number)";
+  const countdownText=document.createElement("textarea");
+  countdownText.rows=2;countdownText.maxLength=240;
+  countdownText.value=value.countdown_message||"Only {remaining} more followers and you get happy hour!";
+  countdownTextLabel.append(countdownText);
+  const countdownExample=document.createElement("p");
+  countdownExample.className="muted small";
+  countdownExample.setAttribute("aria-live","polite");
+  const renderCountdownExample=()=>{
+    const remaining=Math.max(0,(Number(goal.value)||0)-((name==="facebook"?currentLiveCounts.facebook:name==="instagram"?currentLiveCounts.instagram:currentLiveCounts.facebook_likes)??0));
+    countdownExample.textContent=countdownToggle.checked
+      ? "Preview: "+countdownText.value.replace("{remaining}",remaining.toLocaleString())
+      : "Countdown is hidden";
+  };
   const sync=()=>{
    for(const el of [goal,msg,anim])el.disabled=!editable||!enable.checked;
+   countdownToggle.disabled=!editable||!enable.checked;
+   countdownText.disabled=!editable||!enable.checked||!countdownToggle.checked;
    current.targets={...(current.targets||{}),[name]:{enabled:enable.checked,
-    goal:goal.value?Number(goal.value):0,message:msg.value,animation:anim.value}};
+    goal:goal.value?Number(goal.value):0,message:msg.value,animation:anim.value,
+    countdown_enabled:enable.checked&&countdownToggle.checked,
+    countdown_message:countdownText.value}};
+   renderCountdownExample();
   };
-  for(const el of [enable,goal,msg,anim])el.addEventListener("input",sync);
+  for(const el of [enable,goal,msg,anim,countdownToggle,countdownText])el.addEventListener("input",sync);
   const preview=document.createElement("button");preview.type="button";preview.className="secondary";
   preview.textContent="▶ Preview celebration";
   preview.addEventListener("click",()=>{
@@ -152,10 +178,13 @@ function renderTargets(){
     }
     openMilestonePreview(name,label,target);
   });
-  block.append(enableLabel,goalLabel,msgLabel,animLabel,preview);holder.append(block);sync();
+  block.append(enableLabel,goalLabel,msgLabel,animLabel,
+    countdownToggleLabel,countdownTextLabel,countdownExample,preview);
+  holder.append(block);sync();
  }
 }
 let current={slides:[]},editable=true;
+let currentLiveCounts={facebook:null,instagram:null,facebook_likes:null};
 let pendingPreview=null,previewReady=false;
 const modal=document.getElementById("preview-dialog");
 const previewFrame=document.getElementById("milestone-frame");
@@ -323,6 +352,8 @@ function gather(){
    const t=current.targets?.[name];
    if(t?.enabled&&(!Number.isInteger(t.goal)||t.goal<1))throw Error("Choose a valid target number for "+label);
    if(t?.enabled&&!t.message?.trim())throw Error("Enter a milestone message for "+label);
+   if(t?.countdown_enabled&&(!t.enabled||t.countdown_message?.split("{remaining}").length!==2))
+     throw Error("Add {remaining} exactly once to the countdown for "+label);
  }
  return current;
 }
@@ -330,6 +361,7 @@ async function refresh(){
  const config=await api(root+"/config");loadSettings(config.settings);
  $("version").textContent="Draft v"+config.version+" · Published v"+config.published_version;
  const health=await api(root+"/social");
+ currentLiveCounts={facebook:health.facebook,instagram:health.instagram,facebook_likes:health.facebook_likes};
  $("health").textContent=health.status.replaceAll("_"," ")+(health.last_success_at?" · Last synced "+new Date(health.last_success_at*1000).toLocaleString():"");
  $("social").textContent="Facebook: "+(health.facebook??"—")+" · Instagram: "+(health.instagram??"—");
  $("preview-stats").textContent="Loading published counters…";
