@@ -64,10 +64,9 @@ def init(path):
                        ("british-arena","British Arena",int(time.time())))
             db.execute("INSERT OR IGNORE INTO organisation_members VALUES (?,?,?)",
                        ("british-arena","admin","owner"))
-            # Existing staff keep access only to the original British Arena tenant.
-            for username, staff_role in db.execute("SELECT username,role FROM staff").fetchall():
-                db.execute("INSERT OR IGNORE INTO organisation_members VALUES (?,?,?)",
-                           ("british-arena",username,"manager" if staff_role=="marketing" else "viewer"))
+            # Initial legacy staff memberships were seeded in Phase 1.
+            # Never grant *new* staff British Arena membership implicitly.
+            # Platform admins assign each new account to its intended company.
 
 
 def memberships(path, username):
