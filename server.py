@@ -5,6 +5,7 @@ from pathlib import Path
 from http.cookies import SimpleCookie
 import meta_connect
 import tenant_meta
+import tenant_screens
 
 ROOT=Path(__file__).resolve().parent
 CACHE={'instagram':None,'facebook':None,'updated':None,'error':None,'demo':False}
@@ -30,6 +31,7 @@ def db_init():
 
     meta_connect.init(DB_PATH)
     tenant_meta.init(DB_PATH)
+    tenant_screens.init(DB_PATH)
 
 def db_get():
     with DB_LOCK, sqlite3.connect(DB_PATH) as db:
@@ -246,6 +248,7 @@ class Handler(SimpleHTTPRequestHandler):
             return self.json_response(200,{'ok':True,'version':version})
         except (ValueError,KeyError,TypeError):return self.json_response(400,{'error':'invalid settings'})
     def do_POST(self):
+        if tenant_screens.handler_route(self,DB_PATH,'POST'):return
         if tenant_meta.route(self,DB_PATH,'POST'):return
         path=self.path.split('?')[0]
         if path=='/api/meta/select':
@@ -328,6 +331,16 @@ class Handler(SimpleHTTPRequestHandler):
         except (ValueError,UnicodeDecodeError,TypeError):
             return self.json_response(400,{'error':'invalid json'})
     def do_GET(self):
+        path=self.path.split('?')[0]
+        segments=path.strip('/').split('/')
+        if len(segments)==2 and segments[0]=='company':
+            if not self.admin_ok():return self.send_error(403)
+            if not tenant_meta.member_role(DB_PATH,segments[1],self.current_user()['username']):return self.send_error(403)
+            return self.no_cache_html((ROOT/'company-dashboard.html').read_text())
+        if len(segments)==2 and segments[0]=='screen':
+            if not tenant_screens.screen_org(DB_PATH,segments[1]):return self.send_error(404)
+            return self.no_cache_html((ROOT/'company-screen.html').read_text(),headers={'Referrer-Policy':'no-referrer'})
+        if tenant_screens.handler_route(self,DB_PATH,'GET'):return
         if self.path.split('?')[0]=='/platform-integrations':
             if not self.is_admin():return self.send_error(403)
             return self.no_cache_html((ROOT/'platform-integrations.html').read_text())
@@ -413,5 +426,11 @@ if __name__=='__main__':
     db_init()
     demo=os.getenv('DEMO_MODE','true').strip().lower() in ('1','true','yes','on')
     threading.Thread(target=poll_demo if demo else poll_live,daemon=True).start()
+    def company_sync_loop():
+        while True:
+            try:tenant_screens.poll_all(DB_PATH)
+            except Exception:pass
+            time.sleep(90)
+    threading.Thread(target=company_sync_loop,daemon=True).start()
     print(f'Arena dashboard: http://localhost:8765 ({"DEMO" if demo else "LIVE"} mode)',flush=True)
     ThreadingHTTPServer(('0.0.0.0',int(os.getenv('PORT','8765'))),Handler).serve_forever()
