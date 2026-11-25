@@ -315,7 +315,7 @@ def route(handler, path, method):
             handler.json_response(401,{"error":"sign in required"});return True
         params=urllib.parse.parse_qs(parsed.query)
         if "error" in params:
-            handler.no_cache_html("<h1>Connection cancelled</h1><a href='/admin'>Back</a>",400);return True
+            handler.no_cache_html("<h1>Connection cancelled</h1><a href='/organisations'>Back to companies</a>",400);return True
         try:
             org=consume_state(path,params.get("state",[""])[0],user["username"])
             if member_role(path,org,user["username"]) not in ("owner","manager"):
@@ -338,12 +338,12 @@ def route(handler, path, method):
                 const r=await fetch('/api/organisations/'+ORG+'/meta/select',{
                 method:'POST',headers:{'Content-Type':'application/json'},
                 body:JSON.stringify({pending:PENDING,page_id:document.getElementById('page').value})});
-                if(r.ok)location.href='/admin';
+                if(r.ok)location.href='/onboarding/'+ORG;
                 else document.getElementById('result').textContent='Connection failed; please retry.';
               };</script></body></html>"""
             handler.no_cache_html(page_html.replace("OPTIONS",options)
                                   .replace("ORG",org_js).replace("PENDING",pending_js))
         except Exception:
-            handler.no_cache_html("<h1>Meta connection failed</h1><a href='/admin'>Back</a>",400)
+            handler.no_cache_html("<h1>Meta connection failed</h1><a href='/organisations'>Back to companies</a>",400)
         return True
     return False
