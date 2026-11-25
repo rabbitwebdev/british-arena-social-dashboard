@@ -117,14 +117,15 @@ async function refresh(){
  const access=await api(root+"/access");
  $("key-status").textContent=access.configured?"A screen link exists. Only generating a new link will replace it.":"No screen display link created yet.";
  $("rotate").disabled=!access.can_rotate;
- const me=await api("/api/me");
  const orgs=(await api("/api/organisations")).organisations;
+ const company=orgs.find(o=>o.id===org);
+ if(company)document.querySelector("h1").textContent=company.name+" · Dashboard";
  const role=orgs.find(o=>o.id===org)?.role;
  editable=role==="owner"||role==="manager";
  for(const field of fields)$(field).disabled=!editable;
  for(const btn of ["save","publish","add-slide"])$(btn).disabled=!editable;
  drawSlides();
- const published=await api(root+"/config");
+ const published=await api(root+"/published");
  $("preview-title").textContent=published.settings.title;
  $("preview-subtitle").textContent=published.settings.subtitle;
 }
