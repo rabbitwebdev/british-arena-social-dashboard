@@ -221,6 +221,8 @@ def handler_route(handler,path,method):
     action=parts[4] if len(parts)==5 else ""
     if method=="GET" and action=="config":
         handler.json_response(200,get_config(path,org));return True
+    if method=="GET" and action=="published":
+        handler.json_response(200,get_config(path,org,True));return True
     if method=="GET" and action=="social":
         handler.json_response(200,connection_health(path,org));return True
     if method=="GET" and action=="access":
