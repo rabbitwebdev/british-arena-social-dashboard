@@ -35,7 +35,17 @@ code{word-break:break-all;overflow-wrap:anywhere}
 <option value="celebrate">Celebrate</option><option value="football">Football</option>
 <option value="confetti">Confetti</option><option value="none">None</option></select>
 <label for="rotation_seconds">Slide rotation (seconds)</label><input id="rotation_seconds" type="number" min="5" max="120">
-<label for="logo">Logo image URL (HTTPS)</label><input id="logo" maxlength="500" placeholder="https://">
+<label for="logo">Company logo</label>
+<input id="logo" maxlength="500" placeholder="Upload an image below or paste an HTTPS URL">
+<div class="row" style="margin-top:8px">
+  <label class="secondary" style="display:inline-block;margin:0">
+    <span>Upload logo (PNG, JPG, WebP)</span>
+    <input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp" style="padding:5px;width:240px" aria-label="Upload company logo">
+  </label>
+  <button id="remove-logo" class="secondary" type="button">Clear logo</button>
+</div>
+<img id="logo-preview" alt="Current logo preview" hidden style="margin-top:10px;max-width:240px;max-height:130px;object-fit:contain;background:#eef1f7;padding:8px">
+<p class="muted small">Upload an image directly or keep using an HTTPS URL. Maximum 8 MB; images are optimized automatically.</p>
 <label for="facebook_url">Facebook profile URL</label><input id="facebook_url" maxlength="500" placeholder="https://facebook.com/">
 <label for="instagram_url">Instagram profile URL</label><input id="instagram_url" maxlength="500" placeholder="https://instagram.com/">
 <label for="newsletter_url">Newsletter signup URL</label><input id="newsletter_url" maxlength="500" placeholder="https://">
@@ -62,7 +72,7 @@ code{word-break:break-all;overflow-wrap:anywhere}
 <div id="qr-preview" class="row" aria-label="Saved draft QR previews"></div>
 </section>
 <section class="panel">
-<h2>Slides</h2><p class="muted">Add custom sponsor, event and promotion slides. Image URLs must be HTTPS.</p>
+<h2>Slides</h2><p class="muted">Add sponsor, event and promotion slides. Upload images directly or paste an HTTPS URL.</p>
 <div id="slides"></div>
 <button type="button" class="secondary" id="add-slide">Add slide</button>
 </section>
@@ -100,6 +110,38 @@ async function api(path,method,body){
  const data=await r.json().catch(()=>({}));if(!r.ok)throw Error(data.error||"HTTP "+r.status);return data;
 }
 function validHttp(value){return !value||/^https:\/\//i.test(value)}
+function validImage(value){return validHttp(value)||/^media:[a-f0-9]{32}$/.test(value)}
+function imageSrc(value){
+ if(/^media:[a-f0-9]{32}$/.test(value||""))return "/api/organisations/"+encodeURIComponent(org)+"/media/"+value.slice(6);
+ return /^https:\/\//i.test(value||"")?value:"";
+}
+function updateLogoPreview(){
+ const preview=$("logo-preview");const src=imageSrc($("logo").value);
+ if(src){preview.src=src;preview.hidden=false}
+ else {preview.hidden=true;preview.removeAttribute("src")}
+}
+async function uploadImage(file){
+ if(!file)return null;
+ if(!["image/png","image/jpeg","image/webp"].includes(file.type))throw Error("Choose PNG, JPG or WebP.");
+ if(file.size>8*1024*1024)throw Error("Images must be smaller than 8 MB.");
+ const response=await fetch("/api/organisations/"+encodeURIComponent(org)+"/media/upload",{
+  method:"POST",credentials:"same-origin",headers:{"Content-Type":file.type},body:file
+ });
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok)throw Error(data.error||"Upload failed");
+ return data.reference;
+}
+$("logo").addEventListener("change",updateLogoPreview);
+$("logo-file").addEventListener("change",async e=>{
+ const file=e.target.files[0];if(!file)return;
+ try{
+  const reference=await uploadImage(file);
+  $("logo").value=reference;current.logo=reference;
+  updateLogoPreview();status("Logo uploaded. Save draft or publish to use it on TV.");
+ }catch(error){status(error.message,true)}
+ finally{e.target.value=""}
+});
+$("remove-logo").onclick=()=>{$("logo").value="";current.logo="";updateLogoPreview()};
 function renderQrPreview(){
  const container=$("qr-preview");container.replaceChildren();
  const enabled=$("qr_enabled").checked;
@@ -127,6 +169,34 @@ function drawSlides(){
  const input=document.createElement("input");input.value=s[key]||"";input.maxLength=key==="description"?1500:500;
  input.disabled=!editable;input.addEventListener("input",()=>s[key]=input.value);
  field.append(input);block.append(field);
+ if(key==="image"){
+   const upload=document.createElement("input");upload.type="file";
+   upload.accept="image/png,image/jpeg,image/webp";
+   upload.setAttribute("aria-label","Upload image for slide "+(i+1));
+   upload.disabled=!editable;
+   upload.addEventListener("change",async()=>{
+     const file=upload.files?.[0];if(!file)return;
+     try{
+       const reference=await uploadImage(file);
+       s.image=reference;input.value=reference;renderSlidePreview();
+       status("Slide "+(i+1)+" image uploaded. Save or publish when ready.");
+     }catch(error){status(error.message,true)}
+     finally{upload.value=""}
+   });
+   const preview=document.createElement("img");preview.alt="Slide "+(i+1)+" image preview";
+   preview.style.cssText="display:block;max-width:260px;max-height:140px;object-fit:contain;margin-top:8px";
+   const renderSlidePreview=()=>{
+      const src=imageSrc(input.value);
+      if(src){preview.src=src;preview.hidden=false}
+      else{preview.removeAttribute("src");preview.hidden=true}
+   };
+   input.addEventListener("change",renderSlidePreview);
+   const uploadRow=document.createElement("label");
+   uploadRow.textContent="Or upload an image (PNG, JPG, WebP)";
+   uploadRow.append(upload);
+   block.append(uploadRow,preview);
+   renderSlidePreview();
+ }
  }
  const duration=document.createElement("label");duration.textContent="Duration (seconds)";
  const seconds=document.createElement("input");seconds.type="number";seconds.min="5";seconds.max="120";
@@ -140,13 +210,15 @@ function loadSettings(settings){
  current={qr_enabled:false,qr_facebook:true,qr_instagram:false,qr_position:"below",qr_size:180,show_facebook_followers:true,show_instagram_followers:true,show_facebook_likes:false,...settings,slides:settings.slides||[]};
  for(const field of fields)$(field).value=current[field]??"";
  for(const field of [...qrBools,...metricBools])$(field).checked=!!current[field];
+ updateLogoPreview();
  drawSlides();
  renderQrPreview();
 }
 function gather(){
  for(const field of fields)current[field]=["rotation_seconds","qr_size"].includes(field)?Number($(field).value):$(field).value;
  for(const field of [...qrBools,...metricBools])current[field]=$(field).checked;
- if(!["logo","facebook_url","instagram_url","newsletter_url"].every(k=>validHttp(current[k])))throw Error("Use HTTPS URLs for images and links.");
+ if(!validImage(current.logo))throw Error("Upload a logo or use an HTTPS image URL.");
+ if(!["facebook_url","instagram_url","newsletter_url"].every(k=>validHttp(current[k])))throw Error("Use HTTPS URLs for links.");
  if(current.qr_enabled){
    let count=0;
    for(const network of ["facebook","instagram"]){
@@ -161,7 +233,7 @@ function gather(){
    }
    if(!count)throw Error("Select at least one social network for QR codes.");
  }
- for(const s of current.slides)if(!validHttp(s.image||""))throw Error("Slide images must use HTTPS.");
+ for(const s of current.slides)if(!validImage(s.image||""))throw Error("Upload slide images or use HTTPS image URLs.");
  return current;
 }
 async function refresh(){
@@ -180,6 +252,8 @@ async function refresh(){
  const role=orgs.find(o=>o.id===org)?.role;
  editable=role==="owner"||role==="manager";
  for(const field of fields)$(field).disabled=!editable;
+ $("logo-file").disabled=!editable;
+ $("remove-logo").disabled=!editable;
  for(const field of [...qrBools,...metricBools])$(field).disabled=!editable;
  for(const btn of ["save","publish","add-slide"])$(btn).disabled=!editable;
  drawSlides();
