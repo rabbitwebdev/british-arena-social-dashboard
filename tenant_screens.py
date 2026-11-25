@@ -260,8 +260,29 @@ def poll_all(path):
             failures+=1
     return failures
 
+def _serve_svg(handler,svg):
+    handler.send_response(200)
+    handler.send_header("Content-Type","image/svg+xml; charset=utf-8")
+    handler.send_header("Cache-Control","private, no-store")
+    handler.send_header("X-Content-Type-Options","nosniff")
+    handler.send_header("Referrer-Policy","no-referrer")
+    handler.send_header("Content-Security-Policy","default-src 'none'; style-src 'none'; sandbox")
+    handler.send_header("Content-Length",str(len(svg)))
+    handler.end_headers()
+    handler.wfile.write(svg)
+
+
 def handler_route(handler,path,method):
     parts=handler.path.split("?",1)[0].strip("/").split("/")
+    if len(parts)==5 and parts[:2]==["api","screens"] and parts[3]=="qr" and method=="GET":
+        org=screen_org(path,parts[2])
+        if not org:
+            handler.json_response(404,{"error":"screen not found"});return True
+        target=qr_target(get_config(path,org,True)["settings"],parts[4])
+        if not target:
+            handler.json_response(404,{"error":"QR code not available"});return True
+        _serve_svg(handler,qr_svg(target))
+        return True
     # Public display accesses ONLY opaque screen-key endpoints.
     if len(parts)==3 and parts[:2]==["api","screens"] and method=="GET":
         org=screen_org(path,parts[2])
@@ -283,6 +304,12 @@ def handler_route(handler,path,method):
     if not role:
         handler.json_response(403,{"error":"not a member"});return True
     action=parts[4] if len(parts)==5 else ""
+    if method=="GET" and len(parts)==6 and action=="qr":
+        target=qr_target(get_config(path,org)["settings"],parts[5])
+        if not target:
+            handler.json_response(404,{"error":"QR code not available"});return True
+        _serve_svg(handler,qr_svg(target))
+        return True
     if method=="GET" and action=="config":
         handler.json_response(200,get_config(path,org));return True
     if method=="GET" and action=="published":
