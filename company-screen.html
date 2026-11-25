@@ -34,6 +34,17 @@ h2{font-size:clamp(18px,2vw,40px);margin:0;font-weight:500}
 20%{opacity:1;transform:translateY(0) scale(1.1)}
 80%{opacity:1}100%{opacity:0;transform:translateY(-30px)}}
 #status{position:fixed;bottom:1vw;right:1vw;color:#fff9;font-size:12px}
+#milestone{position:fixed;inset:0;z-index:10;background:rgba(5,13,43,.94);display:flex;
+ flex-direction:column;align-items:center;justify-content:center;gap:3vh;
+ text-align:center;padding:5vw;pointer-events:none;opacity:0;visibility:hidden}
+#milestone.show{opacity:1;visibility:visible;animation:milestone-in .5s ease-out}
+#milestone-symbol{font-size:clamp(75px,13vw,210px);line-height:1;animation:milestone-bounce 1s ease-in-out infinite alternate}
+#milestone-message{font-size:clamp(32px,5vw,86px);max-width:90vw;font-weight:900;line-height:1.15;white-space:pre-wrap;overflow-wrap:anywhere}
+#milestone-label{color:#eee;font-size:clamp(19px,2.1vw,37px)}
+@keyframes milestone-in{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+@keyframes milestone-bounce{to{transform:translateY(-18px) rotate(5deg)}}
+#milestone.fireworks{background:radial-gradient(circle at center,#4b2579,#070f33 85%)}
+#milestone.football{background:radial-gradient(circle at center,#205a30,#07162c 85%)}
 </style>
 <div id="stage">
 <img id="logo" hidden alt="Company logo">
@@ -51,12 +62,18 @@ h2{font-size:clamp(18px,2vw,40px);margin:0;font-weight:500}
 <section id="slides"><div id="slideContent"><img id="slideImg" hidden alt=""><div><div id="slideTitle"></div><div id="slideDesc"></div></div></div></section>
 <footer id="footer">Follow us for more updates</footer>
 </div><div id="celebration" aria-live="polite"></div><div id="status"></div>
+<div id="milestone" role="status" aria-live="polite" aria-atomic="true">
+ <div id="milestone-symbol">🎉</div>
+ <div id="milestone-message"></div>
+ <div id="milestone-label"></div>
+</div>
 <script>
 "use strict";
 const key=decodeURIComponent(location.pathname.split("/")[2]||"");
 const endpoint="/api/screens/"+encodeURIComponent(key);
 const $=id=>document.getElementById(id);
 let version=null,previous=null,settings=null,slideIndex=0,nextSlideAt=0,initialized=false;
+let knownMilestoneEvents={},milestonesReady=false,milestoneTimer=null;
 function imageSource(value){
  if(typeof value!=="string")return "";
  if(/^media:[a-f0-9]{32}$/.test(value)){
@@ -113,6 +130,33 @@ function updateSocialQr(){
  }
  container.hidden=!count;
 }
+function checkMilestones(events){
+ const active=events||{};
+ if(!milestonesReady){
+  for(const [channel,item] of Object.entries(active))knownMilestoneEvents[channel]=item.event_id||null;
+  milestonesReady=true;return;
+ }
+ for(const [channel,item] of Object.entries(active)){
+  const id=item.event_id||null;
+  if(id&&knownMilestoneEvents[channel]!==id){
+   knownMilestoneEvents[channel]=id;
+   showMilestone(channel,item);
+  }else if(!id)knownMilestoneEvents[channel]=null;
+ }
+}
+function showMilestone(channel,item){
+ if(milestoneTimer)clearTimeout(milestoneTimer);
+ const container=$("milestone");
+ const label=channel==="facebook"?"Facebook followers":channel==="instagram"?"Instagram followers":"Facebook Page likes";
+ const symbols={celebrate:"✨",confetti:"🎉",football:"⚽",fireworks:"🎆"};
+ container.className="";
+ container.classList.add("show");
+ if(item.animation==="football"||item.animation==="fireworks")container.classList.add(item.animation);
+ $("milestone-symbol").textContent=symbols[item.animation]||"🎉";
+ $("milestone-message").textContent=item.message||"Target reached!";
+ $("milestone-label").textContent=label+" · "+Number(item.goal).toLocaleString()+" reached!";
+ milestoneTimer=setTimeout(()=>{container.className="";milestoneTimer=null},8000);
+}
 function celebrate(channel,difference){
  if(!settings||settings.animation==="none"||difference<=0)return;
  const message=settings.animation==="football"?"⚽":settings.animation==="confetti"?"🎉":"✨";
@@ -139,6 +183,7 @@ async function refresh(){
    slideIndex=0;showSlide();
  }
  const social=data.social||{};
+ checkMilestones(data.milestones);
  const fb=social.facebook,ig=social.instagram;
  $("facebook").textContent=fb==null?"—":Number(fb).toLocaleString();
  $("instagram").textContent=ig==null?"—":Number(ig).toLocaleString();
