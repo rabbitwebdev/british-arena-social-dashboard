@@ -40,6 +40,19 @@ code{word-break:break-all;overflow-wrap:anywhere}
 <label for="instagram_url">Instagram profile URL</label><input id="instagram_url" maxlength="500" placeholder="https://instagram.com/">
 <label for="newsletter_url">Newsletter signup URL</label><input id="newsletter_url" maxlength="500" placeholder="https://">
 </section>
+<section class="panel" id="qr-panel">
+<h2>Social page QR codes</h2>
+<p class="muted">Let guests scan the TV to visit your official Facebook or Instagram page. No third-party QR service is used.</p>
+<label><input id="qr_enabled" type="checkbox" style="display:inline;width:auto"> Display social QR codes</label>
+<label><input id="qr_facebook" type="checkbox" style="display:inline;width:auto"> Show Facebook QR code</label>
+<label><input id="qr_instagram" type="checkbox" style="display:inline;width:auto"> Show Instagram QR code</label>
+<label for="qr_position">Placement</label>
+<select id="qr_position"><option value="below">Below follower counts</option><option value="side">Beside follower counts</option></select>
+<label for="qr_size">QR size on TV</label>
+<select id="qr_size"><option value="120">Small</option><option value="180">Medium</option><option value="240">Large</option><option value="280">Extra large</option></select>
+<p class="muted small">Enter the official Facebook and Instagram URLs in TV design above. Only selected networks with a URL will be published. If you change a URL, publish again to update its QR code.</p>
+<div id="qr-preview" class="row" aria-label="Saved draft QR previews"></div>
+</section>
 <section class="panel">
 <h2>Slides</h2><p class="muted">Add custom sponsor, event and promotion slides. Image URLs must be HTTPS.</p>
 <div id="slides"></div>
@@ -67,7 +80,8 @@ code{word-break:break-all;overflow-wrap:anywhere}
 "use strict";
 const org=decodeURIComponent(location.pathname.split("/")[2]||"");
 const root="/api/organisations/"+encodeURIComponent(org)+"/screen";
-const fields=["title","subtitle","background","accent","animation","rotation_seconds","logo","facebook_url","instagram_url","newsletter_url"];
+const fields=["title","subtitle","background","accent","animation","rotation_seconds","logo","facebook_url","instagram_url","newsletter_url","qr_position","qr_size"];
+const qrBools=["qr_enabled","qr_facebook","qr_instagram"];
 let current={slides:[]},editable=true;
 const $=id=>document.getElementById(id);
 function status(text,bad){$("result").textContent=text;$("result").className=bad?"warning":"good"}
@@ -77,6 +91,23 @@ async function api(path,method,body){
  const data=await r.json().catch(()=>({}));if(!r.ok)throw Error(data.error||"HTTP "+r.status);return data;
 }
 function validHttp(value){return !value||/^https:\/\//i.test(value)}
+function renderQrPreview(){
+ const container=$("qr-preview");container.replaceChildren();
+ const enabled=$("qr_enabled").checked;
+ for(const network of ["facebook","instagram"]){
+   if(!enabled||!$("qr_"+network).checked)continue;
+   const url=$(network+"_url").value.trim();
+   if(!url)continue;
+   const column=document.createElement("div");
+   const heading=document.createElement("strong");heading.textContent=network==="facebook"?"Facebook":"Instagram";
+   const img=document.createElement("img");img.width=140;img.height=140;
+   img.alt=heading.textContent+" QR code preview";
+   img.src=root+"/qr/"+network+"?preview="+Date.now();
+   img.onerror=()=>{column.replaceChildren(heading,document.createTextNode("Save draft to preview."))};
+   column.append(heading,img);container.append(column);
+ }
+}
+for(const field of ["facebook_url","instagram_url",...qrBools])$(field).addEventListener("change",renderQrPreview);
 function drawSlides(){
  const div=$("slides");div.replaceChildren();
  current.slides.forEach((s,i)=>{
@@ -99,11 +130,28 @@ function drawSlides(){
 function loadSettings(settings){
  current={...settings,slides:settings.slides||[]};
  for(const field of fields)$(field).value=current[field]??"";
+ for(const field of qrBools)$(field).checked=!!current[field];
  drawSlides();
+ renderQrPreview();
 }
 function gather(){
- for(const field of fields)current[field]=field==="rotation_seconds"?Number($(field).value):$(field).value;
+ for(const field of fields)current[field]=["rotation_seconds","qr_size"].includes(field)?Number($(field).value):$(field).value;
+ for(const field of qrBools)current[field]=$(field).checked;
  if(!["logo","facebook_url","instagram_url","newsletter_url"].every(k=>validHttp(current[k])))throw Error("Use HTTPS URLs for images and links.");
+ if(current.qr_enabled){
+   let count=0;
+   for(const network of ["facebook","instagram"]){
+     if(current["qr_"+network]){
+       count++;
+       const value=current[network+"_url"].trim();
+       let parsed;
+       try{parsed=new URL(value)}catch(_){throw Error("Enter your "+network+" profile URL for its QR code.")}
+       const allowed=network==="facebook"?["facebook.com","www.facebook.com","m.facebook.com","fb.com"]:["instagram.com","www.instagram.com"];
+       if(parsed.protocol!=="https:"||!allowed.includes(parsed.hostname)||parsed.username||parsed.password||parsed.port)throw Error("Enter an official HTTPS "+network+" page URL.");
+     }
+   }
+   if(!count)throw Error("Select at least one social network for QR codes.");
+ }
  for(const s of current.slides)if(!validHttp(s.image||""))throw Error("Slide images must use HTTPS.");
  return current;
 }
@@ -123,6 +171,7 @@ async function refresh(){
  const role=orgs.find(o=>o.id===org)?.role;
  editable=role==="owner"||role==="manager";
  for(const field of fields)$(field).disabled=!editable;
+ for(const field of qrBools)$(field).disabled=!editable;
  for(const btn of ["save","publish","add-slide"])$(btn).disabled=!editable;
  drawSlides();
  const published=await api(root+"/published");
