@@ -6,6 +6,7 @@ from http.cookies import SimpleCookie
 import meta_connect
 import tenant_meta
 import tenant_screens
+import tenant_media
 import client_onboarding
 
 ROOT=Path(__file__).resolve().parent
@@ -33,6 +34,7 @@ def db_init():
     meta_connect.init(DB_PATH)
     tenant_meta.init(DB_PATH)
     tenant_screens.init(DB_PATH)
+    tenant_media.init(DB_PATH)
     client_onboarding.init(DB_PATH)
 
 def db_get():
@@ -267,6 +269,7 @@ class Handler(SimpleHTTPRequestHandler):
         token=session_sign({'username':username,'role':role,'exp':int(time.time()+12*3600)})
         return 'arena_session='+token+'; Path=/; HttpOnly; SameSite=Lax'+('; Secure' if self.headers.get('X-Forwarded-Proto')=='https' or os.environ.get('PUBLIC_ORIGIN','').startswith('https://') else '')
     def do_POST(self):
+        if tenant_media.route(self,DB_PATH,'POST'):return
         if client_onboarding.route(self,DB_PATH,'POST',hash_password,
             lambda username,role:self.set_login_cookie(username,role)):return
         if tenant_screens.handler_route(self,DB_PATH,'POST'):return
@@ -370,6 +373,7 @@ class Handler(SimpleHTTPRequestHandler):
         if len(segments)==2 and segments[0]=='screen':
             if not tenant_screens.screen_org(DB_PATH,segments[1]):return self.send_error(404)
             return self.no_cache_html((ROOT/'company-screen.html').read_text(),headers={'Referrer-Policy':'no-referrer'})
+        if tenant_media.route(self,DB_PATH,'GET'):return
         if tenant_screens.handler_route(self,DB_PATH,'GET'):return
         if self.path.split('?')[0]=='/platform-integrations':
             if not self.is_admin():return self.send_error(403)
