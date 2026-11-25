@@ -9,6 +9,11 @@ a{color:#0B1F55}button,input,select{font:inherit;border-radius:0;padding:10px 14
 button{background:#0B1F55;color:#fff;cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}
 .card{background:#fff;border:1px solid #d8e0ee;padding:22px;margin:16px 0}
 .row{display:flex;align-items:center;flex-wrap:wrap;gap:10px}.grow{flex:1}
+.remove-panel{margin-top:22px;padding:16px;border:1px solid #c9929d;background:#fff7f8}
+.remove-panel input{min-width:260px;background:white;color:#14274c}
+.remove-panel button{background:#8a2233;border-color:#8a2233}
+.remove-panel p{margin:8px 0}
+.company-id{font-size:12px;color:#64728a;word-break:break-all}
 small,.muted{color:#51627c}.danger{background:#8a2233}#message{min-height:22px}
 </style>
 <header><div><h1>Company connections</h1><p class="muted">Each company authorizes its own Facebook Pages.</p></div><a href="/login">Sign in</a></header>
@@ -43,6 +48,42 @@ async function reload(){
  for(const org of items){
    const section=el("section",undefined,"card");
    section.append(el("h2",org.name),el("p","Your role: "+org.role,"muted"));
+   const fullId=el("small","Company ID: "+org.id,"company-id");section.append(fullId);
+   if(current.user.role==="admin"){
+     if(org.id==="british-arena"){
+       section.append(el("p","Original British Arena company · protected from deletion","muted"));
+     }else{
+       const deleteButton=button("Delete company",()=>{
+         const panel=el("div",undefined,"remove-panel");
+         panel.append(el("h3","Permanently delete "+org.name+"?"));
+         panel.append(el("p","This deletes the company's Facebook/Instagram connections, TV settings, private screen link, invitations and uploaded images. It cannot be undone."));
+         panel.append(el("p","Company ID: "+org.id,"company-id"));
+         panel.append(el("p","Enter DELETE "+org.name+" to confirm."));
+         const phrase=document.createElement("input");
+         phrase.type="text";phrase.autocomplete="off";
+         phrase.placeholder="DELETE "+org.name;
+         phrase.setAttribute("aria-label","Type DELETE and the company name");
+         const confirmDelete=button("Permanently delete",async()=>{
+           if(phrase.value!=="DELETE "+org.name){message.textContent="Type DELETE "+org.name+" exactly.";return}
+           if(!confirm("Final confirmation: permanently delete "+org.name+" ("+org.id+")?"))return;
+           confirmDelete.disabled=true;
+           try{
+             const result=await api("/api/organisations/"+encodeURIComponent(org.id)+"/delete",{
+               method:"POST",headers:{"Content-Type":"application/json"},
+               body:JSON.stringify({id:org.id,name:org.name,phrase:phrase.value})
+             });
+             await reload();
+             message.textContent=result.media_cleaned?"Company deleted.":"Company deleted. Some quarantined image files need cleanup.";
+           }catch(e){message.textContent=e.message;confirmDelete.disabled=false}
+         },"danger");
+         const cancel=button("Cancel",()=>panel.remove());
+         panel.append(phrase,confirmDelete,cancel);
+         deleteButton.replaceWith(panel);
+       },"danger");
+       deleteButton.style.marginTop="16px";
+       section.append(deleteButton);
+     }
+   }
    const dashboard=document.createElement("a");
    dashboard.href="/company/"+encodeURIComponent(org.id);
    dashboard.textContent="Manage dashboard & TV screen";
