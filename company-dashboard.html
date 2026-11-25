@@ -40,6 +40,14 @@ code{word-break:break-all;overflow-wrap:anywhere}
 <label for="instagram_url">Instagram profile URL</label><input id="instagram_url" maxlength="500" placeholder="https://instagram.com/">
 <label for="newsletter_url">Newsletter signup URL</label><input id="newsletter_url" maxlength="500" placeholder="https://">
 </section>
+<section class="panel" id="metric-panel">
+<h2>Social counters on TV</h2>
+<p class="muted">Choose which real social media numbers appear. Turning one off hides its counter, but you can still show its QR code separately.</p>
+<label><input id="show_facebook_followers" type="checkbox" style="display:inline;width:auto"> Show Facebook followers</label>
+<label><input id="show_instagram_followers" type="checkbox" style="display:inline;width:auto"> Show Instagram followers</label>
+<label><input id="show_facebook_likes" type="checkbox" style="display:inline;width:auto"> Show Facebook Page likes</label>
+<p class="muted small">Page likes are a separate Facebook metric. If Meta doesn't provide that count, the TV shows a dash instead of inventing one.</p>
+</section>
 <section class="panel" id="qr-panel">
 <h2>Social page QR codes</h2>
 <p class="muted">Let guests scan the TV to visit your official Facebook or Instagram page. No third-party QR service is used.</p>
@@ -82,6 +90,7 @@ const org=decodeURIComponent(location.pathname.split("/")[2]||"");
 const root="/api/organisations/"+encodeURIComponent(org)+"/screen";
 const fields=["title","subtitle","background","accent","animation","rotation_seconds","logo","facebook_url","instagram_url","newsletter_url","qr_position","qr_size"];
 const qrBools=["qr_enabled","qr_facebook","qr_instagram"];
+const metricBools=["show_facebook_followers","show_instagram_followers","show_facebook_likes"];
 let current={slides:[]},editable=true;
 const $=id=>document.getElementById(id);
 function status(text,bad){$("result").textContent=text;$("result").className=bad?"warning":"good"}
@@ -128,15 +137,15 @@ function drawSlides(){
  });
 }
 function loadSettings(settings){
- current={qr_enabled:false,qr_facebook:true,qr_instagram:false,qr_position:"below",qr_size:180,...settings,slides:settings.slides||[]};
+ current={qr_enabled:false,qr_facebook:true,qr_instagram:false,qr_position:"below",qr_size:180,show_facebook_followers:true,show_instagram_followers:true,show_facebook_likes:false,...settings,slides:settings.slides||[]};
  for(const field of fields)$(field).value=current[field]??"";
- for(const field of qrBools)$(field).checked=!!current[field];
+ for(const field of [...qrBools,...metricBools])$(field).checked=!!current[field];
  drawSlides();
  renderQrPreview();
 }
 function gather(){
  for(const field of fields)current[field]=["rotation_seconds","qr_size"].includes(field)?Number($(field).value):$(field).value;
- for(const field of qrBools)current[field]=$(field).checked;
+ for(const field of [...qrBools,...metricBools])current[field]=$(field).checked;
  if(!["logo","facebook_url","instagram_url","newsletter_url"].every(k=>validHttp(current[k])))throw Error("Use HTTPS URLs for images and links.");
  if(current.qr_enabled){
    let count=0;
@@ -171,7 +180,7 @@ async function refresh(){
  const role=orgs.find(o=>o.id===org)?.role;
  editable=role==="owner"||role==="manager";
  for(const field of fields)$(field).disabled=!editable;
- for(const field of qrBools)$(field).disabled=!editable;
+ for(const field of [...qrBools,...metricBools])$(field).disabled=!editable;
  for(const btn of ["save","publish","add-slide"])$(btn).disabled=!editable;
  drawSlides();
  const published=await api(root+"/published");
