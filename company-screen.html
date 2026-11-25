@@ -69,15 +69,16 @@ h2{font-size:clamp(18px,2vw,40px);margin:0;font-weight:500}
 </div>
 <script>
 "use strict";
+const previewMode=location.pathname.startsWith("/company/")&&location.pathname.endsWith("/preview");
 const key=decodeURIComponent(location.pathname.split("/")[2]||"");
-const endpoint="/api/screens/"+encodeURIComponent(key);
+const endpoint=previewMode?"/api/organisations/"+encodeURIComponent(key)+"/screen/config":"/api/screens/"+encodeURIComponent(key);
 const $=id=>document.getElementById(id);
 let version=null,previous=null,settings=null,slideIndex=0,nextSlideAt=0,initialized=false;
 let knownMilestoneEvents={},milestonesReady=false,milestoneTimer=null;
 function imageSource(value){
  if(typeof value!=="string")return "";
  if(/^media:[a-f0-9]{32}$/.test(value)){
-   return "/api/screens/"+encodeURIComponent(key)+"/media/"+value.slice(6);
+   return (previewMode?"/api/organisations/":"/api/screens/")+encodeURIComponent(key)+"/media/"+value.slice(6);
  }
  return /^https:\/\//i.test(value)?value:"";
 }
@@ -124,7 +125,7 @@ function updateSocialQr(){
    card.hidden=!visible;
    if(visible){
      const img=$("qr-"+network+"-image");
-     img.src="/api/screens/"+encodeURIComponent(key)+"/qr/"+network+"?v="+encodeURIComponent(version);
+     img.src=(previewMode?"/api/organisations/":"/api/screens/")+encodeURIComponent(key)+(previewMode?"/screen/qr/":"/qr/")+network+"?v="+encodeURIComponent(version);
      count++;
    }else $("qr-"+network+"-image").removeAttribute("src");
  }
@@ -183,14 +184,14 @@ async function refresh(){
    slideIndex=0;showSlide();
  }
  const social=data.social||{};
- checkMilestones(data.milestones);
+ if(!previewMode)checkMilestones(data.milestones);
  const fb=social.facebook,ig=social.instagram;
  $("facebook").textContent=fb==null?"—":Number(fb).toLocaleString();
  $("instagram").textContent=ig==null?"—":Number(ig).toLocaleString();
  $("facebook-likes").textContent=social.facebook_likes==null?"—":Number(social.facebook_likes).toLocaleString();
  // Never manufacture follow events. Only show changes after a successful sync
  // and only after the first screen fetch.
- if(initialized&&social.status==="connected"&&previous?.status==="connected"){
+ if(!previewMode&&initialized&&social.status==="connected"&&previous?.status==="connected"){
    if(!$("metric-facebook-followers").hidden&&fb!=null&&previous.facebook!=null&&fb>previous.facebook)celebrate("Facebook",fb-previous.facebook);
    if(!$("metric-instagram-followers").hidden&&ig!=null&&previous.instagram!=null&&ig>previous.instagram)celebrate("Instagram",ig-previous.instagram);
  }
@@ -200,5 +201,22 @@ async function refresh(){
 }
 setInterval(()=>{if(settings?.slides?.length&&Date.now()>nextSlideAt)showSlide()},1000);
 // The TV polls its own cached backend, not Meta. Fast checks do not consume Graph API quota.
-setInterval(refresh,3000);refresh();
+if(previewMode){
+ $("status").textContent="PREVIEW ONLY · no live milestone changes";
+ window.addEventListener("message",event=>{
+   if(event.origin!==location.origin||event.source!==window.parent)return;
+   const payload=event.data;
+   if(!payload||payload.type!=="social-milestone-preview"||
+      !["facebook","instagram","facebook_likes"].includes(payload.channel))return;
+   const item=payload.target;
+   if(!item||!Number.isInteger(item.goal)||item.goal<1||item.goal>2000000000||
+      typeof item.message!=="string"||item.message.length>240||
+      !["celebrate","confetti","football","fireworks"].includes(item.animation))return;
+   showMilestone(payload.channel,item);
+ });
+ window.parent.postMessage({type:"social-milestone-preview-ready"},location.origin);
+ refresh();
+}else{
+ setInterval(refresh,3000);refresh();
+}
 </script></html>
