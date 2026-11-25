@@ -1,0 +1,30 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Get started · Social Dashboard</title>
+<style>*{box-sizing:border-box}body{font:16px/1.5 system-ui,sans-serif;background:#f3f5fa;color:#14264c;max-width:850px;padding:28px;margin:0 auto}main{background:white;border:1px solid #d5deed;padding:32px}.steps{display:grid;gap:16px}.step{border:1px solid #d3dbea;padding:22px}.step h2{font-size:20px;margin:0 0 10px}button,a.button{display:inline-block;text-decoration:none;font:inherit;background:#0B1F55;color:white;padding:12px 18px;border:none;border-radius:0;cursor:pointer}.muted{color:#64728a}#account{font-weight:700}</style>
+<header><h1>Welcome to Social Dashboard</h1><p>Let's get your company's social wall online.</p></header>
+<main><p id="account" aria-live="polite">Loading your company…</p>
+<div class="steps"><section class="step"><h2>1. Connect Facebook</h2>
+<p>Sign into Facebook with your own account. Choose the Page you manage and approve the requested access. You do not need to share Facebook passwords or create an API app.</p>
+<button id="connect">Connect my Facebook Page</button><p id="connection" class="muted">Checking connection…</p></section>
+<section class="step"><h2>2. Customise your TV</h2><p>Set your brand colours, choose which follower counts appear, enable QR codes, and add promotions.</p><a id="customize" class="button">Customise TV display</a></section>
+<section class="step"><h2>3. Publish your screen</h2><p>Save and publish your changes, then create a private TV link to open on your venue's screen or Raspberry Pi.</p><a id="dashboard" class="button">Open company dashboard</a></section></div>
+<p><a href="/organisations">Company connections</a> · <a href="/logout" id="signout">Sign out</a></p></main>
+<script>"use strict";
+const org=location.pathname.split("/")[2]||"";
+const base="/api/organisations/"+encodeURIComponent(org);
+const $=id=>document.getElementById(id);
+(async()=>{
+ const response=await fetch("/api/organisations",{credentials:"same-origin"});
+ if(!response.ok)throw Error("Sign in required");
+ const list=(await response.json()).organisations||[];
+ const company=list.find(x=>x.id===org);
+ if(!company)throw Error("Company unavailable");
+ $("account").textContent=company.name+" · "+company.role;
+ $("customize").href="/company/"+encodeURIComponent(org);
+ $("dashboard").href="/company/"+encodeURIComponent(org);
+ $("connect").disabled=company.role==="viewer";
+ const accounts=await fetch(base+"/meta/connections",{credentials:"same-origin"}).then(r=>r.json());
+ $("connection").textContent=(accounts.connections||[]).length?"Facebook connected: "+accounts.connections.map(x=>x.page_name).join(", "):"No Facebook Page connected yet.";
+})().catch(e=>{$("account").textContent=e.message;$("connect").disabled=true});
+$("connect").onclick=()=>location.assign(base+"/meta/connect");
+$("signout").onclick=async e=>{e.preventDefault();await fetch("/logout",{method:"POST"});location.assign("/login")};
+</script></html>
