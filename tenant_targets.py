@@ -33,12 +33,14 @@ def validate(data):
         raise ValueError("Invalid milestone settings")
     clean={}
     for metric,settings in data.items():
-        if not isinstance(settings,dict) or set(settings)-{"enabled","goal","message","animation"}:
+        if not isinstance(settings,dict) or set(settings)-{"enabled","goal","message","animation","countdown_enabled","countdown_message"}:
             raise ValueError("Invalid milestone for "+metric)
         enabled=settings.get("enabled",False)
         goal=settings.get("goal",0)
         message=settings.get("message",DEFAULT_MESSAGE)
         animation=settings.get("animation","confetti")
+        countdown_enabled=settings.get("countdown_enabled",False)
+        countdown_message=settings.get("countdown_message","Only {remaining} more to go!")
         if type(enabled) is not bool or type(goal) is not int or goal<0 or goal>2_000_000_000:
             raise ValueError("Invalid milestone target")
         if enabled and goal<1:
@@ -47,7 +49,15 @@ def validate(data):
             raise ValueError("Milestone text must be 1–240 characters")
         if animation not in ANIMATIONS:
             raise ValueError("Unsupported milestone animation")
-        clean[metric]={"enabled":enabled,"goal":goal,"message":message.strip(),"animation":animation}
+        if type(countdown_enabled) is not bool:
+            raise ValueError("Invalid countdown setting")
+        if not isinstance(countdown_message,str) or not 1<=len(countdown_message.strip())<=240:
+            raise ValueError("Countdown text must be 1–240 characters")
+        if countdown_enabled and (not enabled or countdown_message.count("{remaining}")!=1):
+            raise ValueError("Enable a milestone and include {remaining} once in its countdown text")
+        clean[metric]={"enabled":enabled,"goal":goal,"message":message.strip(),"animation":animation,
+                       "countdown_enabled":countdown_enabled,
+                       "countdown_message":countdown_message.strip()}
     return clean
 
 def _goals(config):
@@ -117,5 +127,7 @@ def events(db_path,org,config):
         if metric not in goals or goal!=goals[metric]["goal"]:continue
         result[metric]={"goal":goal,"state":state,"event_id":event_id,
                         "reached_at":reached_at,"message":goals[metric]["message"],
-                        "animation":goals[metric]["animation"]}
+                        "animation":goals[metric]["animation"],
+                        "countdown_enabled":goals[metric]["countdown_enabled"],
+                        "countdown_message":goals[metric]["countdown_message"]}
     return result
