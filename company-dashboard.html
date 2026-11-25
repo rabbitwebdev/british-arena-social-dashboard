@@ -18,9 +18,21 @@ code{word-break:break-all;overflow-wrap:anywhere}
 .small{font-size:12px}#result{min-height:28px}
 .slide{border:1px solid #d6dfec;padding:13px;margin:12px 0}
 @media(max-width:780px){.grid{grid-template-columns:1fr}}
+#preview-dialog{border:0;padding:0;width:min(96vw,1280px);max-width:1280px;background:#fff;color:#13264b}
+#preview-dialog::backdrop{background:rgba(6,15,40,.78)}
+.preview-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px}
+#milestone-frame{display:block;width:100%;aspect-ratio:16/9;border:0;background:#0B1F55}
+.preview-foot{padding:12px 16px;color:#51627d;font-size:13px}
 </style>
 <header><div><h1>Company Social Dashboard</h1><p class="muted">Independent social wall, settings and publishing</p></div><div class="row"><a href="/organisations">All companies</a><a href="/admin">Legacy Arena dashboard</a></div></header>
 <p id="result" role="status" aria-live="polite"></p>
+<dialog id="preview-dialog" aria-label="Social milestone celebration preview">
+  <div class="preview-head"><strong id="milestone-preview-title">Milestone preview</strong>
+  <div class="row"><button class="secondary" id="replay-preview" type="button">Replay celebration</button>
+  <button class="secondary" id="close-preview" type="button">Close</button></div></div>
+  <iframe id="milestone-frame" title="TV milestone animation preview" referrerpolicy="no-referrer"></iframe>
+  <div class="preview-foot">Preview only. No follower counts, target records or live TV screens are changed.</div>
+</dialog>
 <div class="grid">
 <div>
 <section class="panel">
@@ -130,10 +142,50 @@ function renderTargets(){
     goal:goal.value?Number(goal.value):0,message:msg.value,animation:anim.value}};
   };
   for(const el of [enable,goal,msg,anim])el.addEventListener("input",sync);
-  block.append(enableLabel,goalLabel,msgLabel,animLabel);holder.append(block);sync();
+  const preview=document.createElement("button");preview.type="button";preview.className="secondary";
+  preview.textContent="▶ Preview celebration";
+  preview.addEventListener("click",()=>{
+    const target={goal:goal.value?Number(goal.value):1,
+      message:msg.value||"Target reached!",animation:anim.value};
+    if(!Number.isInteger(target.goal)||target.goal<1||target.goal>2000000000){
+      status("Enter a valid number to preview "+label,true);return;
+    }
+    openMilestonePreview(name,label,target);
+  });
+  block.append(enableLabel,goalLabel,msgLabel,animLabel,preview);holder.append(block);sync();
  }
 }
 let current={slides:[]},editable=true;
+let pendingPreview=null,previewReady=false;
+const modal=document.getElementById("preview-dialog");
+const previewFrame=document.getElementById("milestone-frame");
+function transmitPreview(){
+ if(!previewReady||!pendingPreview)return;
+ previewFrame.contentWindow.postMessage(
+  {type:"social-milestone-preview",channel:pendingPreview.channel,target:pendingPreview.target},
+  location.origin);
+}
+function openMilestonePreview(channel,label,target){
+ pendingPreview={channel,label,target};
+ document.getElementById("milestone-preview-title").textContent=label+" · target celebration";
+ previewReady=false;
+ modal.showModal();
+ // Never use live TV links or trigger the real threshold detection.
+ previewFrame.src="/company/"+encodeURIComponent(org)+"/preview";
+}
+window.addEventListener("message",event=>{
+ if(event.origin!==location.origin||event.source!==previewFrame.contentWindow)return;
+ if(event.data?.type==="social-milestone-preview-ready"){
+  previewReady=true;
+  transmitPreview();
+ }
+});
+document.getElementById("replay-preview").onclick=transmitPreview;
+document.getElementById("close-preview").onclick=()=>modal.close();
+modal.addEventListener("close",()=>{
+ pendingPreview=null;previewReady=false;
+ previewFrame.removeAttribute("src");
+});
 const $=id=>document.getElementById(id);
 function status(text,bad){$("result").textContent=text;$("result").className=bad?"warning":"good"}
 async function api(path,method,body){
