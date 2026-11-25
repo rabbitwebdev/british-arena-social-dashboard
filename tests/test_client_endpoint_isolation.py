@@ -9,12 +9,15 @@ class LegacyAccessTests(unittest.TestCase):
         self.path=os.path.join(self.tmp.name,"test.sqlite")
         with sqlite3.connect(self.path) as db:
             db.execute("CREATE TABLE staff(username TEXT PRIMARY KEY,password_hash TEXT NOT NULL,role TEXT NOT NULL,created_at INTEGER NOT NULL)")
-            db.execute("INSERT INTO staff VALUES ('customer@example.com','hash','marketing',0)")
+        # Migrated Arena staff predate the invitation; clients join afterwards.
         tenant_meta.init(self.path)
         tenant_screens.init(self.path)
         client_onboarding.init(self.path)
         self.org=tenant_meta.create_organisation(self.path,"External Company","admin")["id"]
+        with sqlite3.connect(self.path) as db:
+            db.execute("INSERT INTO staff VALUES ('customer@example.com','hash','marketing',0)")
         tenant_meta.add_member(self.path,self.org,"customer@example.com","owner")
+        self.assertIsNone(tenant_meta.member_role(self.path,"british-arena","customer@example.com"))
         self.patch=patch.object(server,"DB_PATH",self.path)
         self.patch.start()
 
