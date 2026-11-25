@@ -328,6 +328,9 @@ class Handler(SimpleHTTPRequestHandler):
         except (ValueError,UnicodeDecodeError,TypeError):
             return self.json_response(400,{'error':'invalid json'})
     def do_GET(self):
+        if self.path.split('?')[0]=='/platform-integrations':
+            if not self.is_admin():return self.send_error(403)
+            return self.no_cache_html((ROOT/'platform-integrations.html').read_text())
         if self.path.split('?')[0]=='/organisations':
             if not self.admin_ok():
                 self.send_response(302);self.send_header('Location','/login');self.end_headers();return
