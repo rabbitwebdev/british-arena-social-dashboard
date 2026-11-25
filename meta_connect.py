@@ -3,7 +3,7 @@ import base64, hashlib, hmac, json, os, secrets, sqlite3, time, urllib.parse, ur
 from cryptography.fernet import Fernet, InvalidToken
 
 GRAPH_VERSION=os.getenv('META_API_VERSION','v26.0')
-PERMISSIONS='pages_show_list,pages_read_engagement,instagram_basic'  # optional insights are a separate review step
+PERMISSIONS='pages_show_list,pages_read_engagement,instagram_basic,business_management'  # optional insights are a separate review step
 
 def configured():
     return bool(os.getenv('META_APP_ID') and os.getenv('META_APP_SECRET') and os.getenv('META_TOKEN_ENCRYPTION_KEY') and os.getenv('PUBLIC_ORIGIN'))
@@ -58,11 +58,72 @@ def code_to_token(code):
         return long['access_token']
     except (KeyError,ValueError):return short
 
+def _graph_pages(path,token,fields,limit=100,max_batches=5):
+    """Follow Graph cursors without fetching untrusted absolute next URLs.
+
+    Meta cursors are opaque; token stays in a server-side Graph request.
+    """
+    results=[]
+    after=None
+    for _ in range(max_batches):
+        params={'fields':fields,'limit':str(limit)}
+        if after:params['after']=after
+        response=graph(path,params,token)
+        results.extend(response.get('data') or [])
+        next_cursor=((response.get('paging') or {}).get('cursors') or {}).get('after')
+        if not next_cursor or next_cursor==after:break
+        after=next_cursor
+    return results
+
+
 def list_pages(token):
-    result=graph('me/accounts',{'fields':'id,name,access_token,instagram_business_account{id,username},connected_instagram_account{id,username}','limit':'100'},token)
-    pages=result.get('data',[])
-    # request first 100 and let staff see clear feedback if not present
-    return [{'id':x['id'],'name':x['name'],'instagram_id':(x.get('instagram_business_account') or x.get('connected_instagram_account') or {}).get('id'),'instagram_username':(x.get('instagram_business_account') or x.get('connected_instagram_account') or {}).get('username'),'access_token':x.get('access_token')} for x in pages]
+    """Discover authorised Pages, including Business Portfolio assignments.
+
+    Use a Page-specific access token where Meta grants one; never treat mere
+    portfolio visibility as authorisation to connect or poll a Page.
+    """
+    fields='id,name,access_token,instagram_business_account{id,username},connected_instagram_account{id,username}'
+    pages={}
+    for item in _graph_pages('me/accounts',token,fields):
+        if item.get('id') and item.get('access_token'):
+            pages[str(item['id'])]=item
+    # Check managed business assets only as a fallback/discovery supplement.
+    # These calls can be restricted independently by Meta, so failure here
+    # must not discard valid /me/accounts results.
+    try:
+        businesses=_graph_pages('me/businesses',token,'id,name',max_batches=3)
+    except ValueError:
+        businesses=[]
+    for business in businesses[:30]:
+        business_id=str(business.get('id') or '')
+        if not business_id.isdigit():continue
+        for edge in ('owned_pages','client_pages'):
+            try:
+                assigned=_graph_pages(business_id+'/'+edge,token,'id,name',max_batches=3)
+            except ValueError:
+                continue
+            for item in assigned:
+                page_id=str(item.get('id') or '')
+                if not page_id.isdigit() or page_id in pages:continue
+                # An assigned asset is not itself a Page access token.
+                # Request a Page token explicitly and verify it belongs to
+                # the expected ID before making it selectable.
+                try:
+                    detail=graph(page_id,{'fields':fields},token)
+                    if str(detail.get('id'))!=page_id or not detail.get('access_token'):
+                        continue
+                    pages[page_id]=detail
+                except ValueError:
+                    continue
+    output=[]
+    for item in pages.values():
+        instagram=item.get('instagram_business_account') or item.get('connected_instagram_account') or {}
+        output.append({'id':str(item['id']),'name':item['name'],
+                       'instagram_id':instagram.get('id'),
+                       'instagram_username':instagram.get('username'),
+                       'access_token':item['access_token']})
+    return sorted(output,key=lambda p:p['name'].casefold())
+
 
 def pending_save(db_path,token):
     nonce=secrets.token_urlsafe(20)
