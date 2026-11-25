@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Platform integrations | Social Dashboard</title>
+<style>
+:root{font:15px/1.55 system-ui,sans-serif;color:#162444;background:#f4f6fa}*{box-sizing:border-box}
+body{margin:0 auto;padding:30px 20px;max-width:920px}
+header{display:flex;align-items:center;justify-content:space-between;gap:20px}
+h1,h2{line-height:1.25}p{max-width:75ch}code{overflow-wrap:anywhere}
+a{color:#0B1F55}button{font:inherit;border:1px solid #0B1F55;background:white;color:#0B1F55;padding:10px 14px;cursor:pointer;border-radius:0}
+.panel{background:#fff;border:1px solid #cbd4e4;padding:22px;margin:18px 0}
+.status{font-weight:700}.muted{color:#53627b}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.code{display:block;background:#edf1f8;padding:12px;margin:12px 0}
+ol{padding-left:22px}li{margin:11px 0}
+</style>
+<header><div><h1>Platform integrations</h1><p class="muted">Private configuration for the dashboard operator. Customers never see developer settings.</p></div><a href="/organisations">Companies</a></header>
+<div class="panel">
+<h2>Facebook &amp; Instagram</h2>
+<p id="status" class="status" role="status" aria-live="polite">Checking configuration…</p>
+<p id="details" class="muted"></p>
+<div id="missing" hidden><strong>Missing Railway variables</strong><ul id="missing-values"></ul></div>
+<strong>Authorized OAuth callback URL</strong>
+<code id="callback" class="code">Loading…</code>
+<div class="row"><button id="copy" type="button">Copy callback URL</button><a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer">Open Meta for Developers</a></div>
+</div>
+<div class="panel">
+<h2>One-time setup for the platform owner</h2>
+<ol>
+<li>Create or open one <strong>Business</strong> Meta developer app for the Social Dashboard. Use a staging app for testing.</li>
+<li>Enable the <strong>Facebook Login for Business</strong> capability and the Page/Instagram permissions used by this dashboard.</li>
+<li>In the Facebook Login settings, add the exact callback URL above to <strong>Valid OAuth Redirect URIs</strong>.</li>
+<li>Copy the App ID and App Secret from <strong>App settings → Basic</strong> into the <strong>staging service's Railway Variables</strong> as <code>META_APP_ID</code> and <code>META_APP_SECRET</code>. Do not paste secrets into this page or GitHub.</li>
+<li>Redeploy staging, then connect a Facebook Page you administer from <a href="/organisations">Companies</a>. Instagram discovery currently requires a linked professional Instagram account.</li>
+<li>Before public customers connect, complete Meta's required App Review/Advanced Access and any business verification requirements.</li>
+</ol>
+<p class="muted">This page only checks whether configuration is present. It does not validate Meta's approval status or test an access token. A connected account may need new permission if Meta revokes access.</p>
+</div>
+<script>
+"use strict";
+const status=document.getElementById("status");
+const details=document.getElementById("details");
+const callback=document.getElementById("callback");
+fetch("/api/platform/integrations/meta",{credentials:"same-origin"})
+.then(async response=>{
+ const data=await response.json();
+ if(!response.ok)throw Error(data.error||"Unable to check integration");
+ status.textContent=data.configured?"Configuration present":"Setup required";
+ details.textContent=data.configured?"Meta credentials are stored in Railway. You can test authorisation from the Companies page.":"Only the platform operator needs to complete the following setup; customer login buttons remain disabled until then.";
+ callback.textContent=data.callback_url||"Set PUBLIC_ORIGIN in the staging service.";
+ document.getElementById("copy").disabled=!data.callback_url;
+ const missing=document.getElementById("missing");
+ missing.hidden=!data.missing.length;
+ const ul=document.getElementById("missing-values");
+ for(const item of data.missing){const li=document.createElement("li");li.textContent=item;ul.append(li)}
+}).catch(err=>{status.textContent="Configuration check failed";details.textContent=err.message});
+document.getElementById("copy").addEventListener("click",()=>{
+ const text=callback.textContent;
+ if(text.startsWith("https://"))navigator.clipboard.writeText(text)
+ .then(()=>{document.getElementById("copy").textContent="Copied";})
+ .catch(()=>{document.getElementById("copy").textContent="Select and copy above";});
+});
+</script>
+</html>
