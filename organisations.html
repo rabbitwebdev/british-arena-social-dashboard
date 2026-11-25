@@ -11,7 +11,7 @@ button{background:#0B1F55;color:#fff;cursor:pointer}button:disabled{opacity:.55;
 .row{display:flex;align-items:center;flex-wrap:wrap;gap:10px}.grow{flex:1}
 small,.muted{color:#51627c}.danger{background:#8a2233}#message{min-height:22px}
 </style>
-<header><div><h1>Company connections</h1><p class="muted">Each company authorizes its own Facebook Pages.</p></div><a href="/admin">Back to dashboard</a></header>
+<header><div><h1>Company connections</h1><p class="muted">Each company authorizes its own Facebook Pages.</p></div><a href="/login">Sign in</a></header>
 <div id="message" role="status" aria-live="polite"></div>
 <p id="platform-link" hidden><a href="/platform-integrations">Platform integrations (administrators only)</a></p>
 <section id="new-company" class="card" hidden>
@@ -48,6 +48,39 @@ async function reload(){
    dashboard.textContent="Manage dashboard & TV screen";
    dashboard.style.display="inline-block";dashboard.style.marginBottom="16px";
    section.append(dashboard);
+   if(org.role==="owner"){
+     const invitePanel=el("div",undefined,"card");
+     invitePanel.style.background="#f2f5fa";
+     invitePanel.append(el("h3","Invite a client or colleague"));
+     const form=document.createElement("form");form.className="row";
+     const email=document.createElement("input");email.type="email";email.placeholder="client@example.com";email.required=true;email.maxLength=254;email.setAttribute("aria-label","Client email address");
+     const role=document.createElement("select");role.setAttribute("aria-label","Company role");
+     for(const [value,title] of [["owner","Owner"],["manager","Manager"],["viewer","Viewer"]]){
+       const opt=document.createElement("option");opt.value=value;opt.textContent=title;role.append(opt);
+     }
+     const submit=document.createElement("button");submit.textContent="Send invitation";submit.type="submit";
+     const result=el("p",undefined,"muted");result.setAttribute("role","status");
+     form.append(email,role,submit);
+     form.addEventListener("submit",async event=>{
+       event.preventDefault();submit.disabled=true;result.replaceChildren();
+       try{
+         const data=await api("/api/organisations/"+encodeURIComponent(org.id)+"/invitations",{
+           method:"POST",headers:{"Content-Type":"application/json"},
+           body:JSON.stringify({email:email.value,role:role.value})});
+         if(data.sent){result.textContent="Invitation email sent to "+data.email+" (expires in 48 hours).";}
+         else{
+           result.textContent="Email delivery is not configured. Copy this one-time invitation link securely and send it to the client:";
+           const field=document.createElement("input");field.readOnly=true;field.value=data.invite_url;
+           field.style.width="100%";field.setAttribute("aria-label","One-time invitation URL");
+           const copy=button("Copy invitation link",()=>navigator.clipboard.writeText(field.value).then(()=>{result.insertBefore(el("small","Copied. Send this link privately."),field);}));
+           result.append(field,copy);
+         }
+         email.value="";
+       }catch(err){result.textContent=err.message}
+       finally{submit.disabled=false}
+     });
+     invitePanel.append(form,result);section.append(invitePanel);
+   }
    const body=el("div");section.append(body);
    const render=async()=>{
      body.replaceChildren();
