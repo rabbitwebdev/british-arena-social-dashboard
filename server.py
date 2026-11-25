@@ -168,6 +168,15 @@ def poll_live():
 
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self,*args,**kwargs): super().__init__(*args,directory=str(ROOT),**kwargs)
+    def log_message(self,format,*args):
+        # Screen tokens and OAuth credentials must never reach Railway logs.
+        import sys
+        route=urllib.parse.urlsplit(self.path).path
+        pieces=route.strip('/').split('/')
+        if len(pieces)>=2 and pieces[0] in ('screen','api') and (
+            pieces[0]=='screen' or (len(pieces)>=3 and pieces[1]=='screens')):
+            route='/[private-screen]'
+        print('%s %s %s' % (self.client_address[0],self.command,route),file=sys.stderr)
     def json_response(self, code, obj):
         body=json.dumps(obj).encode('utf-8')
         self.send_response(code)
@@ -397,7 +406,7 @@ class Handler(SimpleHTTPRequestHandler):
             except Exception:
                 return self.no_cache_html('<h1>Could not connect Meta</h1><p>Check the Meta app permissions and callback URL.</p><a href="/admin">Back</a>',502)
         if path=='/login':
-            return self.no_cache_html("""<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Arena Admin</title><style>body{font:16px Arial;background:#0B1F55;color:white;display:grid;place-items:center;min-height:90vh}form{border:1px solid #789;padding:30px;min-width:280px}input,button{display:block;padding:14px;width:100%;box-sizing:border-box;margin-top:16px;border-radius:0}button{background:#fff;color:#0B1F55;font-weight:bold}</style><form action="/login" method="post"><h1>British Arena</h1><p>Cloud dashboard sign in</p><label>Username<input name="username" value="admin" required></label><label>Password<input name="password" type="password" required autofocus></label><button>Sign in</button></form></html>""")
+            return self.no_cache_html("""<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Social Dashboard Sign In</title><style>body{font:16px Arial;background:#0B1F55;color:white;display:grid;place-items:center;min-height:90vh}form{border:1px solid #789;padding:30px;min-width:280px}input,button{display:block;padding:14px;width:100%;box-sizing:border-box;margin-top:16px;border-radius:0}button{background:#fff;color:#0B1F55;font-weight:bold}</style><form action="/login" method="post"><h1>Social Dashboard</h1><p>Sign in to your company workspace</p><label>Username or email<input name="username" autocomplete="username" placeholder="Email or username" required></label><label>Password<input name="password" type="password" required autofocus></label><button>Sign in</button></form></html>""")
         if path=='/':
             self.send_response(302);self.send_header('Location','/login');self.end_headers();return
         if path=='/admin':
@@ -424,9 +433,13 @@ class Handler(SimpleHTTPRequestHandler):
                 rows=db.execute('SELECT username,role,created_at FROM staff ORDER BY username').fetchall()
             return self.json_response(200,{'staff':[{'username':r[0],'role':r[1],'created':r[2]} for r in rows]})
         if path=='/api/counts':
+            if not (self.admin_ok() or self.display_ok()):
+                return self.json_response(403,{'error':'forbidden'})
             with LOCK: payload=dict(CACHE)
             return self.json_response(200,payload)
         if path=='/api/newsletter-events':
+            if not (self.admin_ok() or self.display_ok()):
+                return self.json_response(403,{'error':'forbidden'})
             try: after=max(0,int(urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get('after',['0'])[0]))
             except ValueError: after=0
             with LOCK:
