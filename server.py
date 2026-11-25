@@ -6,6 +6,7 @@ from http.cookies import SimpleCookie
 import meta_connect
 import tenant_meta
 import tenant_screens
+import tenant_targets
 import tenant_media
 import tenant_delete
 import client_onboarding
@@ -35,6 +36,7 @@ def db_init():
     meta_connect.init(DB_PATH)
     tenant_meta.init(DB_PATH)
     tenant_screens.init(DB_PATH)
+    tenant_targets.init(DB_PATH)
     tenant_media.init(DB_PATH)
     client_onboarding.init(DB_PATH)
 
