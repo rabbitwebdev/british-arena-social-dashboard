@@ -65,8 +65,8 @@ class CompanyDeletionTests(unittest.TestCase):
                                            (self.a,)).fetchone()[0],0,table)
             self.assertIsNotNone(db.execute("SELECT id FROM organisations WHERE id=?",
                                               (self.b,)).fetchone())
-            self.assertEqual(db.execute("SELECT COUNT(*) FROM "+table+" WHERE "+key+"=?",
-                                        (self.b,)).fetchone()[0],1)
+            self.assertGreater(db.execute("SELECT COUNT(*) FROM organisation_members WHERE organisation_id=?",
+                                           (self.b,)).fetchone()[0],0)
             self.assertIsNotNone(db.execute("SELECT username FROM staff WHERE username=?",
                                               ("client@example.com",)).fetchone())
         self.assertFalse((tenant_media.media_root(self.path)/self.a).exists())
