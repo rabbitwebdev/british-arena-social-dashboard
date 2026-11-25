@@ -37,6 +37,16 @@ class TenantMetaTests(unittest.TestCase):
         self.assertIsNone(tenant_meta.member_role(self.path,org["id"],"marketer"))
         self.assertEqual(tenant_meta.member_role(self.path,org["id"],"admin"),"owner")
 
+    def test_new_staff_is_not_auto_added_to_existing_company(self):
+        with sqlite3.connect(self.path) as db:
+            db.execute("INSERT INTO staff VALUES (?,?)",("newstaff","marketing"))
+        tenant_meta.init(self.path)
+        self.assertIsNone(tenant_meta.member_role(self.path,"british-arena","newstaff"))
+        org=tenant_meta.create_organisation(self.path,"New Venue","admin")
+        tenant_meta.add_member(self.path,org["id"],"newstaff","manager")
+        self.assertEqual(tenant_meta.member_role(self.path,org["id"],"newstaff"),"manager")
+        self.assertIsNone(tenant_meta.member_role(self.path,"british-arena","newstaff"))
+
     def test_meta_state_is_one_time_and_user_scoped(self):
         url=tenant_meta.authorize(self.path,"british-arena","admin")
         query=parse_qs(urlsplit(url).query)
