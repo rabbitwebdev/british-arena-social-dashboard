@@ -191,16 +191,18 @@ def sync_org(path,org):
                (org,facebook,instagram,now if status=="connected" else None,now,status))
 
 def sync_interval():
-    """Interval between server-side Meta checks, in seconds.
+    """Poll interval, permitting 5s only for explicitly enabled staging tests.
 
-    Never poll Meta more often than every 15 seconds. Each business account
-    may be subject to API throttling; raise this interval as tenancy grows.
+    Keep a >=15s minimum for normal environments to avoid accidental
+    high-frequency requests across many customer accounts.
     """
     try:
         raw=int(os.getenv("SOCIAL_SYNC_INTERVAL_SECONDS","30"))
     except ValueError:
         raw=30
-    return max(15,min(raw,300))
+    fast_test=os.getenv("SOCIAL_FAST_POLL_TEST","").strip().lower()=="true"
+    minimum=5 if fast_test and os.getenv("RAILWAY_ENVIRONMENT_NAME","").lower()=="staging" else 15
+    return max(minimum,min(raw,300))
 
 
 def poll_all(path):
