@@ -240,7 +240,11 @@ function stopCelebrationTimer(){
 function updateCelebrationTimer(message){
  const remaining=Math.max(0,Math.ceil((celebrationEndsAt-Date.now())/1000));
  if(remaining===0){stopCelebrationTimer();return}
- $("celebration-timer").textContent=message.replace("{seconds}",remaining.toLocaleString());
+ const formatted=Math.floor(remaining/60)+"m "+(remaining%60)+"s";
+ // Older saved milestones use {seconds}; the original default copy is
+ // upgraded on display so it never produces an awkward "1m 30ss".
+ const template=message==="Offer ends in {seconds}s"?"Offer ends in {time}":message;
+ $("celebration-timer").textContent=template.replace("{time}",formatted).replace("{seconds}",remaining.toLocaleString());
 }
 function showMilestone(channel,item){
  if(milestoneTimer)clearTimeout(milestoneTimer);
@@ -269,7 +273,8 @@ function showMilestone(channel,item){
    :seconds*1000;
  if(!milliseconds){container.className="";return}
  if(item.timer_enabled===true && typeof item.timer_message==="string" &&
-   item.timer_message.split("{seconds}").length===2){
+   (item.timer_message.split("{time}").length-1+
+    item.timer_message.split("{seconds}").length-1)===1){
    celebrationEndsAt=Date.now()+milliseconds;
    $("celebration-timer").hidden=false;
    updateCelebrationTimer(item.timer_message);
@@ -365,7 +370,9 @@ if(previewMode){
       (item.timer_enabled!==undefined&&typeof item.timer_enabled!=="boolean")||
       (item.timer_message!==undefined&&(typeof item.timer_message!=="string"||
          item.timer_message.length>160||
-         (item.timer_enabled===true&&item.timer_message.split("{seconds}").length!==2)))||
+         (item.timer_enabled===true&&
+          (item.timer_message.split("{time}").length-1+
+           item.timer_message.split("{seconds}").length-1)!==1)))||
       (item.display_duration!==undefined&&
        (!Number.isInteger(item.display_duration)||item.display_duration<5||item.display_duration>3600)))return;
    if(payload.type==="social-milestone-preview"){
