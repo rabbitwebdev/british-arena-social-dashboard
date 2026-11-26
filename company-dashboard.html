@@ -158,10 +158,15 @@ function renderTargets(){
   msg.value=value.message||"Target reached! Thank you for following us.";msgLabel.append(msg);
   const animLabel=document.createElement("label");animLabel.textContent="Animation";
   const anim=document.createElement("select");
-  for(const [id,title] of [["confetti","🎉 Confetti"],["fireworks","🎆 Fireworks"],["football","⚽ Football"],["celebrate","✨ Celebration"]]){
+  for(const [id,title] of [["confetti","🎉 Confetti"],["fireworks","🎆 Fireworks"],["football","⚽ Football"],["celebrate","✨ Celebration"],["image_only","🖼️ Image only (full screen)"]]){
    const opt=document.createElement("option");opt.value=id;opt.textContent=title;anim.append(opt);
   }
   anim.value=value.animation||"confetti";animLabel.append(anim);
+  const imageOnlyHelp=document.createElement("p");
+  imageOnlyHelp.className="muted small";
+  imageOnlyHelp.textContent="Image only fills the TV screen without any animation, message or labels.";
+  imageOnlyHelp.hidden=anim.value!=="image_only";
+  anim.addEventListener("change",()=>{imageOnlyHelp.hidden=anim.value!=="image_only"});
   const durationLabel=document.createElement("label");durationLabel.textContent="Target reached display duration (seconds, 5–3600)";
   const duration=document.createElement("input");duration.type="number";duration.min="5";duration.max="3600";duration.step="1";
   duration.value=value.display_duration??8;durationLabel.append(duration);
@@ -242,6 +247,9 @@ function renderTargets(){
     if(!Number.isInteger(target.display_duration)||target.display_duration<5||target.display_duration>3600){
       status("Celebration duration must be between 5 seconds and 1 hour.",true);return;
     }
+    if(target.animation==="image_only"&&!target.celebration_image){
+      status("Upload a 16:9 image before previewing Image only.",true);return;
+    }
     openMilestonePreview(name,label,target);
   });
   const previewCountdown=document.createElement("button");
@@ -260,7 +268,7 @@ function renderTargets(){
     const remaining=Number.isInteger(live)&&live<target.goal?target.goal-live:Math.min(22,target.goal);
     openMilestonePreview(name,label,target,"social-countdown-preview",remaining);
   });
-  block.append(enableLabel,goalLabel,msgLabel,animLabel,imageLabel,durationLabel,
+  block.append(enableLabel,goalLabel,msgLabel,animLabel,imageOnlyHelp,imageLabel,durationLabel,
     countdownToggleLabel,countdownTextLabel,countdownExample,preview,previewCountdown);
   holder.append(block);sync();
  }
@@ -444,6 +452,8 @@ function gather(){
    const t=current.targets?.[name];
    if(t?.enabled&&(!Number.isInteger(t.goal)||t.goal<1))throw Error("Choose a valid target number for "+label);
    if(t?.enabled&&!t.message?.trim())throw Error("Enter a milestone message for "+label);
+   if(t?.enabled&&t.animation==="image_only"&&!t.celebration_image)
+     throw Error("Upload a 16:9 image for the Image only celebration on "+label);
    if(t?.enabled&&(!Number.isInteger(t.display_duration)||t.display_duration<5||t.display_duration>3600))
      throw Error("Celebration duration must be between 5 and 3600 seconds for "+label);
    if(t?.countdown_enabled&&(!t.enabled||t.countdown_message?.split("{remaining}").length!==2))
