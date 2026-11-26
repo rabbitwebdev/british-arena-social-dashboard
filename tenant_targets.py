@@ -149,10 +149,26 @@ def after_publish(db_path,org,config):
 
 def _advance_due(db,org,metric,config,now,counts):
     steps=stages(config)
-    row=db.execute("""SELECT active_index,state,reached_at FROM company_target_states
+    row=db.execute("""SELECT active_index,state,reached_at,event_id FROM company_target_states
                       WHERE org_id=? AND metric=?""",(org,metric)).fetchone()
     if not row:return
-    index,state,reached_at=row
+    index,state,reached_at,event_id=row
+    # Targets already exceeded before they were published have no celebration.
+    # Skip these silently when a following target exists.
+    if state=="reached" and reached_at is None and event_id is None and len(steps)>1:
+        value=counts.get(metric)
+        if value is not None:
+            next_index=next((i for i in range(index+1,len(steps))
+                              if steps[i]["goal"]>value),len(steps))
+            if next_index==len(steps):
+                db.execute("""UPDATE company_target_states SET active_index=?,goal=?,
+                  state='complete',event_id=NULL,reached_at=NULL WHERE org_id=? AND metric=?""",
+                  (len(steps),steps[-1]["goal"],org,metric))
+            else:
+                db.execute("""UPDATE company_target_states SET active_index=?,goal=?,
+                  state='armed',event_id=NULL,reached_at=NULL WHERE org_id=? AND metric=?""",
+                  (next_index,steps[next_index]["goal"],org,metric))
+        return
     if state!="reached" or reached_at is None or now<reached_at+steps[index]["display_duration"]:
         return
     next_index=index+1
