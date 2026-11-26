@@ -66,9 +66,13 @@ def exists(db_path,org,identifier):
 def validate_settings(db_path,org,settings):
     images=[settings.get("logo","")]+[s.get("image","") for s in settings.get("slides",[])]
     targets=settings.get("targets") or {}
-    images.extend(t.get("celebration_image","") for t in targets.values())
-    # Celebration art is uploaded 16:9 only, not an externally hosted URL.
+    target_steps=[]
     for target in targets.values():
+        target_steps.append(target)
+        target_steps.extend(target.get("next_targets",[]))
+    images.extend(t.get("celebration_image","") for t in target_steps)
+    # Celebration art is uploaded 16:9 only, not an externally hosted URL.
+    for target in target_steps:
         ref=target.get("celebration_image","")
         if not ref:continue
         ident=media_id(ref)
@@ -144,7 +148,9 @@ def referenced_in_published(db_path,org,identifier):
     return identifier in [
         media_id(settings.get("logo","")),
         *[media_id(slide.get("image","")) for slide in settings.get("slides",[])],
-        *[media_id(target.get("celebration_image","")) for target in settings.get("targets",{}).values()]
+        *[media_id(target.get("celebration_image",""))
+          for root in settings.get("targets",{}).values()
+          for target in [root,*root.get("next_targets",[])]]
     ]
 
 def serve(handler,db_path,org,identifier):
