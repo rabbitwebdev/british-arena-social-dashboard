@@ -76,6 +76,36 @@ class MediaTests(unittest.TestCase):
         self.assertTrue(tenant_media.referenced_in_published(self.path,self.a,identifier))
         self.assertFalse(tenant_media.referenced_in_published(self.path,self.b,identifier))
 
+    def test_celebration_art_must_be_16_by_9_company_owned_and_published(self):
+        def art(width,height):
+            buffer=io.BytesIO()
+            Image.new("RGB",(width,height),(24,78,155)).save(buffer,format="PNG")
+            return tenant_media.upload(self.path,self.a,buffer.getvalue(),"image/png")
+        valid=art(320,180)
+        invalid=art(300,180)
+        settings=tenant_screens.get_config(self.path,self.a)["settings"]
+        goal={"enabled":True,"goal":1300,"message":"Happy hour",
+              "animation":"confetti","celebration_image":valid["reference"],
+              "display_duration":3600}
+        setting={**settings,"targets":{"facebook":goal}}
+        ident=tenant_media.media_id(valid["reference"])
+        tenant_screens.save_config(self.path,self.a,setting)
+        self.assertFalse(tenant_media.referenced_in_published(self.path,self.a,ident))
+        tenant_screens.publish(self.path,self.a)
+        self.assertTrue(tenant_media.referenced_in_published(self.path,self.a,ident))
+        self.assertFalse(tenant_media.referenced_in_published(self.path,self.b,ident))
+        target=tenant_screens.get_config(self.path,self.a,True)["settings"]["targets"]["facebook"]
+        self.assertEqual(target["display_duration"],3600)
+        self.assertEqual(target["celebration_image"],valid["reference"])
+        with self.assertRaisesRegex(ValueError,"16:9"):
+            tenant_screens.save_config(self.path,self.a,{
+                **settings,"targets":{"facebook":{
+                    **goal,"celebration_image":invalid["reference"]}}})
+        with self.assertRaises(ValueError):
+            tenant_screens.save_config(self.path,self.b,{
+                **tenant_screens.get_config(self.path,self.b)["settings"],
+                "targets":{"facebook":goal}})
+
     def test_media_route_authorisation_and_public_publishing(self):
         saved=tenant_media.upload(self.path,self.a,self.picture(),"image/png")
         ident=tenant_media.media_id(saved["reference"])
