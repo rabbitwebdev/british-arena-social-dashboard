@@ -108,6 +108,8 @@ code{word-break:break-all;overflow-wrap:anywhere}
 <button class="secondary" id="copy-url">Copy display link</button><a id="open-screen" target="_blank" rel="noreferrer">Open display</a></div>
 </section>
 <section class="panel"><h2>TV preview</h2><p>Published content only. Saves stay private until you press Publish.</p>
+<p><a id="open-layout-preview" target="_blank" rel="noopener noreferrer">Open full TV layout preview (saved draft)</a></p>
+<p class="muted small">Save draft first to preview your custom fonts, QR codes, slides and countdown layout. Resize the browser to check fitting.</p>
 <div style="aspect-ratio:16/9;background:#0B1F55;color:white;display:grid;place-items:center;text-align:center;padding:12px">
 <div><strong id="preview-title">Your social wall</strong><p id="preview-subtitle">Follow us</p><p id="preview-stats">Facebook · Instagram</p></div></div>
 </section>
@@ -418,6 +420,7 @@ async function refresh(){
  const access=await api(root+"/access");
  $("key-status").textContent=access.configured?"A screen link exists. Only generating a new link will replace it.":"No screen display link created yet.";
  $("rotate").disabled=!access.can_rotate;
+ $("open-layout-preview").href="/company/"+encodeURIComponent(org)+"/preview";
  const orgs=(await api("/api/organisations")).organisations;
  const company=orgs.find(o=>o.id===org);
  if(company)document.querySelector("h1").textContent=company.name+" · Dashboard";
