@@ -50,7 +50,11 @@ h2{font-size:clamp(13px,var(--subtitle-size,2vw),70px);margin:0;font-weight:500}
  text-align:center;padding:5vw;pointer-events:none;opacity:0;visibility:hidden}
 #milestone.show{opacity:1;visibility:visible;animation:milestone-in .5s ease-out}
 #milestone-symbol{font-size:min(13vw,20vh,180px);line-height:1;animation:milestone-bounce 1s ease-in-out infinite alternate}
-#milestone-image{display:block;max-width:min(82vw,145vh);max-height:48dvh;width:auto;height:auto;aspect-ratio:16/9;object-fit:contain}
+#milestone-image{display:block;max-width:min(82vw,145vh);max-height:38dvh;width:auto;height:auto;aspect-ratio:16/9;object-fit:contain}
+#milestone.with-image{padding:3vh 3vw;gap:1.5vh}
+#milestone.with-image #milestone-symbol{font-size:min(8vw,11vh)}
+#milestone.with-image #milestone-message{max-height:27dvh;overflow:hidden}
+#milestone.with-image #milestone-label{font-size:min(2vw,5vh)}
 #milestone-image[hidden]{display:none!important}
 #milestone-message{font-size:clamp(18px,var(--celebration-size,5vw),155px);max-width:90vw;max-height:56dvh;overflow:hidden;font-weight:900;line-height:1.15;white-space:pre-wrap;overflow-wrap:anywhere}
 #milestone-label{color:#eee;font-size:clamp(13px,var(--label-size,2.1vw),60px)}
@@ -209,6 +213,7 @@ function showMilestone(channel,item){
  container.className="";
  container.classList.add("show");
  if(item.animation==="football"||item.animation==="fireworks")container.classList.add(item.animation);
+ if(item.celebration_image)container.classList.add("with-image");
  $("milestone-symbol").textContent=symbols[item.animation]||"🎉";
  const artwork=$("milestone-image");
  const src=imageSource(item.celebration_image||"");
