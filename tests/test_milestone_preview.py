@@ -64,6 +64,21 @@ class MilestonePreviewTests(unittest.TestCase):
         self.assertIn("Math.max(0,target.goal-count)",screen)
         self.assertIn('previewFrame.src="/company/"+encodeURIComponent(org)+"/preview"',editor)
 
+    def test_celebration_preview_uses_uploaded_image_and_duration_without_mutation(self):
+        from pathlib import Path
+        root=Path(__file__).resolve().parents[1]
+        editor=(root/"company-dashboard.html").read_text()
+        screen=(root/"company-screen.html").read_text()
+        self.assertIn("Upload 16:9 celebration image for",editor)
+        self.assertIn("Target reached display duration",editor)
+        self.assertIn("celebration_image:imageRef",editor)
+        self.assertIn("display_duration:Number(duration.value)",editor)
+        self.assertIn("imageSource(item.celebration_image",screen)
+        self.assertIn('id="milestone-image"',screen)
+        self.assertIn("seconds*1000",screen)
+        self.assertIn("with-image",screen)
+        self.assertIn('previewFrame.src="/company/"+encodeURIComponent(org)+"/preview"',editor)
+
     def test_editor_contains_preview_and_replay_ui(self):
         from pathlib import Path
         root=Path(__file__).resolve().parents[1]
