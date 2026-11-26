@@ -261,7 +261,7 @@ modal.addEventListener("close",()=>{
  pendingPreview=null;previewReady=false;
  previewFrame.removeAttribute("src");
 });
-const $=id=>document.getElementById(id);
+function $(id){return document.getElementById(id)}
 function status(text,bad){$("result").textContent=text;$("result").className=bad?"warning":"good"}
 async function api(path,method,body){
  const r=await fetch(path,{credentials:"same-origin",method:method||"GET",
