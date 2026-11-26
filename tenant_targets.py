@@ -12,7 +12,7 @@ from contextlib import closing
 
 METRICS=("facebook","instagram","facebook_likes")
 DEFAULT_MESSAGE="Target reached! Thank you for following us."
-ANIMATIONS=("celebrate","confetti","football","fireworks")
+ANIMATIONS=("celebrate","confetti","football","fireworks","image_only")
 
 def db_open(path):
     db=sqlite3.connect(str(path),timeout=15)
@@ -56,6 +56,8 @@ def validate(data):
             raise ValueError("Target celebration duration must be between 5 and 3600 seconds")
         if not isinstance(celebration_image,str) or (celebration_image and not re.fullmatch(r"media:[a-f0-9]{32}",celebration_image)):
             raise ValueError("Celebration image must be a company-uploaded image")
+        if enabled and animation=="image_only" and not celebration_image:
+            raise ValueError("Image only celebrations require an uploaded 16:9 image")
         if type(countdown_enabled) is not bool:
             raise ValueError("Invalid countdown setting")
         if not isinstance(countdown_message,str) or not 1<=len(countdown_message.strip())<=240:
