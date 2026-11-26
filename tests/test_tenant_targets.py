@@ -261,6 +261,78 @@ class MilestoneTests(unittest.TestCase):
             **sample,"enabled":False}})["instagram"]
         self.assertFalse(disabled["enabled"])
 
+    def test_target_sequence_waits_for_prior_celebration_duration(self):
+        from unittest.mock import patch
+        root=tenant_screens.get_config(self.db,self.org)["settings"]
+        root["targets"]={"facebook":{"enabled":True,"goal":1300,
+             "message":"Drinks","animation":"confetti","display_duration":5,
+             "next_targets":[
+                {"enabled":True,"goal":1350,"message":"Happy hour","animation":"football",
+                 "display_duration":60,"countdown_enabled":True,
+                 "countdown_message":"Only {remaining} more followers!"},
+                {"enabled":True,"goal":1400,"message":"Prize","animation":"fireworks",
+                 "display_duration":10}]}}
+        with patch.object(tenant_targets.time,"time",return_value=1000):
+            tenant_screens.save_config(self.db,self.org,root)
+            tenant_screens.publish(self.db,self.org)
+            self.poll(fb=1299)
+            self.poll(fb=1300)
+            first=self.events()["facebook"]
+            self.assertEqual((first["goal"],first["active_index"],first["total_targets"]),
+                             (1300,0,3))
+            self.assertTrue(first["event_id"])
+        with patch.object(tenant_targets.time,"time",return_value=1004):
+            self.poll(fb=1350)
+            held=self.events()["facebook"]
+            self.assertEqual(held["goal"],1300)
+            self.assertEqual(held["event_id"],first["event_id"])
+        with patch.object(tenant_targets.time,"time",return_value=1005):
+            self.poll(fb=1340)
+            second=self.events()["facebook"]
+            self.assertEqual((second["goal"],second["active_index"]),(1350,1))
+            self.assertEqual(second["state"],"armed")
+            self.assertIsNone(second["event_id"])
+            self.assertEqual(second["countdown_message"],"Only {remaining} more followers!")
+        with patch.object(tenant_targets.time,"time",return_value=1006):
+            self.poll(fb=1350)
+            second=self.events()["facebook"]
+            self.assertTrue(second["event_id"])
+            self.assertNotEqual(second["event_id"],first["event_id"])
+        with patch.object(tenant_targets.time,"time",return_value=1065):
+            self.poll(fb=1400)
+            self.assertEqual(self.events()["facebook"]["goal"],1350)
+        with patch.object(tenant_targets.time,"time",return_value=1066):
+            self.poll(fb=1399)
+            third=self.events()["facebook"]
+            self.assertEqual((third["goal"],third["active_index"]),(1400,2))
+            self.assertIsNone(third["event_id"])
+        with patch.object(tenant_targets.time,"time",return_value=1067):
+            self.poll(fb=1400)
+            third=self.events()["facebook"]
+            self.assertTrue(third["event_id"])
+        with patch.object(tenant_targets.time,"time",return_value=1077):
+            complete=self.events()["facebook"]
+            self.assertEqual(complete["state"],"complete")
+            self.assertIsNone(complete["event_id"])
+            self.assertEqual(complete["total_targets"],3)
+
+    def test_sequence_validation_and_tenant_scoping(self):
+        base={"enabled":True,"goal":100,"message":"First","animation":"confetti"}
+        later={"enabled":True,"goal":200,"message":"Second","animation":"football"}
+        valid=tenant_targets.validate({"facebook":{**base,"next_targets":[later]}})
+        self.assertEqual([x["goal"] for x in tenant_targets.stages(valid["facebook"])],[100,200])
+        self.assertNotIn("next_targets",tenant_targets.validate({"facebook":base})["facebook"])
+        for extra in ([{**later,"goal":100}],[{**later,"enabled":False}],
+                      [{**later,"next_targets":[]}],[later]*20):
+            with self.subTest(extra=extra):
+                with self.assertRaises(ValueError):
+                    tenant_targets.validate({"facebook":{**base,"next_targets":extra}})
+        first=tenant_screens.get_config(self.db,self.org)["settings"]
+        first["targets"]=valid
+        tenant_screens.save_config(self.db,self.org,first)
+        tenant_screens.publish(self.db,self.org)
+        self.assertEqual(self.events(self.other),{})
+
     def test_invalid_target_rejected_without_mutating_config(self):
         base=tenant_screens.get_config(self.db,self.org)["settings"]
         bad=[
