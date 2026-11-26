@@ -144,12 +144,24 @@ const milestoneChannels=[["facebook","Facebook followers"],["instagram","Instagr
 function renderTargets(){
  const holder=$("targets");holder.replaceChildren();
  for(const [name,label] of milestoneChannels){
-  const value=current.targets?.[name]||{enabled:false,goal:0,message:"Target reached! Thank you for following us.",animation:"confetti"};
+  const root=current.targets?.[name]||{enabled:false,goal:0,message:"Target reached! Thank you for following us.",animation:"confetti"};
+  const {next_targets,...first}=root;
+  const steps=[first,...(Array.isArray(next_targets)?next_targets:[])];
+  const group=document.createElement("section");group.className="slide";
+  const heading=document.createElement("h3");heading.textContent=label+" · milestone sequence";
+  group.append(heading);
+  for(let index=0;index<steps.length;index++){
+  const value=steps[index];
   const block=document.createElement("div");block.className="slide";
+  const stepTitle=document.createElement("strong");
+  stepTitle.textContent="Milestone "+(index+1)+(index===0?" · first target":" · next target");
+  block.append(stepTitle);
   const enableLabel=document.createElement("label");
   const enable=document.createElement("input");enable.type="checkbox";enable.checked=value.enabled===true;
-  enable.style.cssText="display:inline;width:auto;margin-right:8px";enable.disabled=!editable;
-  enableLabel.append(enable,document.createTextNode("Enable "+label+" target"));
+  enable.style.cssText="display:inline;width:auto;margin-right:8px";
+  enable.disabled=!editable||index>0;
+  if(index>0)enable.checked=true;
+  enableLabel.append(enable,document.createTextNode(index===0?"Enable "+label+" targets":"Follow previous target automatically"));
   const goalLabel=document.createElement("label");goalLabel.textContent="Target count";
   const goal=document.createElement("input");goal.type="number";goal.min="1";goal.max="2000000000";goal.step="1";
   goal.value=value.goal||"";goal.placeholder="e.g. 1233";goalLabel.append(goal);
@@ -227,11 +239,13 @@ function renderTargets(){
    clearImage.disabled=!editable||!enable.checked;
    countdownToggle.disabled=!editable||!enable.checked;
    countdownText.disabled=!editable||!enable.checked||!countdownToggle.checked;
-   current.targets={...(current.targets||{}),[name]:{enabled:enable.checked,
+   steps[index]={enabled:enable.checked,
     goal:goal.value?Number(goal.value):0,message:msg.value,animation:anim.value,
     celebration_image:imageRef,display_duration:duration.value?Number(duration.value):8,
     countdown_enabled:enable.checked&&countdownToggle.checked,
-    countdown_message:countdownText.value}};
+    countdown_message:countdownText.value};
+   current.targets={...(current.targets||{}),[name]:{
+     ...steps[0],...(steps.length>1?{next_targets:steps.slice(1)}:{})}};
    renderCountdownExample();
   };
   for(const el of [enable,goal,msg,anim,duration,countdownToggle,countdownText])el.addEventListener("input",sync);
@@ -270,7 +284,35 @@ function renderTargets(){
   });
   block.append(enableLabel,goalLabel,msgLabel,animLabel,imageOnlyHelp,imageLabel,durationLabel,
     countdownToggleLabel,countdownTextLabel,countdownExample,preview,previewCountdown);
-  holder.append(block);sync();
+  if(index>0){
+   const remove=document.createElement("button");remove.type="button";remove.className="secondary";
+   remove.textContent="Remove milestone "+(index+1);remove.disabled=!editable;
+   remove.onclick=()=>{
+     steps.splice(index,1);
+     current.targets={...(current.targets||{}),[name]:{
+       ...steps[0],...(steps.length>1?{next_targets:steps.slice(1)}:{})}};
+     renderTargets();
+   };
+   block.append(remove);
+  }
+  group.append(block);sync();
+  }
+  const add=document.createElement("button");add.type="button";add.className="secondary";
+  add.textContent="+ Add next "+label+" target";
+  add.disabled=!editable||steps.length>=20;
+  add.onclick=()=>{
+    if(steps.length>=20)return;
+    const previous=steps[steps.length-1];
+    const newGoal=previous.goal>0?Math.min(2000000000,previous.goal+100):100;
+    steps.push({enabled:true,goal:newGoal,
+       message:"Target reached! Thank you for following us.",
+       animation:"confetti",celebration_image:"",display_duration:8,
+       countdown_enabled:false,countdown_message:"Only {remaining} more to go!"});
+    current.targets={...(current.targets||{}),[name]:{
+      ...steps[0],next_targets:steps.slice(1)}};
+    renderTargets();
+  };
+  group.append(add);holder.append(group);
  }
 }
 let current={slides:[]},editable=true;
