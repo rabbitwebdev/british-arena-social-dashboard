@@ -106,6 +106,30 @@ class MediaTests(unittest.TestCase):
                 **tenant_screens.get_config(self.path,self.b)["settings"],
                 "targets":{"facebook":goal}})
 
+    def test_queued_milestone_images_are_company_scoped_and_private_until_publish(self):
+        def upload16(org):
+            stream=io.BytesIO()
+            Image.new("RGB",(320,180),(80,120,200)).save(stream,format="PNG")
+            return tenant_media.upload(self.path,org,stream.getvalue(),"image/png")
+        first=upload16(self.a)
+        second=upload16(self.a)
+        one={"enabled":True,"goal":1300,"message":"First","animation":"image_only",
+             "celebration_image":first["reference"],"display_duration":5}
+        two={"enabled":True,"goal":1400,"message":"Second","animation":"image_only",
+             "celebration_image":second["reference"],"display_duration":3600}
+        settings=tenant_screens.get_config(self.path,self.a)["settings"]
+        settings["targets"]={"facebook":{**one,"next_targets":[two]}}
+        tenant_screens.save_config(self.path,self.a,settings)
+        ident=tenant_media.media_id(second["reference"])
+        self.assertFalse(tenant_media.referenced_in_published(self.path,self.a,ident))
+        tenant_screens.publish(self.path,self.a)
+        self.assertTrue(tenant_media.referenced_in_published(self.path,self.a,ident))
+        self.assertFalse(tenant_media.referenced_in_published(self.path,self.b,ident))
+        other=tenant_screens.get_config(self.path,self.b)["settings"]
+        other["targets"]={"facebook":{**one,"next_targets":[two]}}
+        with self.assertRaises(ValueError):
+            tenant_screens.save_config(self.path,self.b,other)
+
     def test_media_route_authorisation_and_public_publishing(self):
         saved=tenant_media.upload(self.path,self.a,self.picture(),"image/png")
         ident=tenant_media.media_id(saved["reference"])
