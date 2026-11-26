@@ -41,6 +41,47 @@ class CompanyScreenTests(unittest.TestCase):
         with patch.dict(os.environ,{"SOCIAL_SYNC_INTERVAL_SECONDS":"invalid"}):
             self.assertEqual(tenant_screens.sync_interval(),30)
 
+    def test_custom_qr_captions_can_be_changed_or_hidden_independently(self):
+        original=tenant_screens.get_config(self.db,"british-arena")["settings"]
+        self.assertTrue(original["qr_facebook_show_label"])
+        self.assertEqual(original["qr_facebook_label"],"Scan for Facebook")
+        self.assertEqual(original["qr_instagram_label"],"Scan for Instagram")
+        adjusted={**original,
+            "qr_facebook_show_label":False,"qr_facebook_label":"",
+            "qr_instagram_show_label":True,
+            "qr_instagram_label":"Follow us on Instagram"}
+        tenant_screens.save_config(self.db,"british-arena",adjusted)
+        self.assertTrue(tenant_screens.get_config(self.db,"british-arena",True)
+                        ["settings"]["qr_facebook_show_label"])
+        tenant_screens.publish(self.db,"british-arena")
+        actual=tenant_screens.get_config(self.db,"british-arena",True)["settings"]
+        self.assertFalse(actual["qr_facebook_show_label"])
+        self.assertEqual(actual["qr_facebook_label"],"")
+        self.assertTrue(actual["qr_instagram_show_label"])
+        self.assertEqual(actual["qr_instagram_label"],"Follow us on Instagram")
+        other=tenant_screens.get_config(self.db,self.second,True)["settings"]
+        self.assertEqual(other["qr_facebook_label"],"Scan for Facebook")
+        self.assertTrue(other["qr_facebook_show_label"])
+        for invalid in ({**original,"qr_facebook_label":"A"*101},
+                        {**original,"qr_instagram_show_label":"false"},
+                        {**original,"qr_facebook_label":""},
+                        {**original,"qr_instagram_label":42}):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValueError):
+                    tenant_screens.save_config(self.db,"british-arena",invalid)
+
+    def test_qr_label_controls_are_present_in_editor_and_tv(self):
+        from pathlib import Path
+        root=Path(__file__).resolve().parents[1]
+        editor=(root/"company-dashboard.html").read_text()
+        screen=(root/"company-screen.html").read_text()
+        for field in ("qr_facebook_label","qr_instagram_label",
+                      "qr_facebook_show_label","qr_instagram_show_label"):
+            self.assertIn(field,editor)
+        self.assertIn('caption.hidden=!showLabel',screen)
+        self.assertIn('caption.textContent=settings?.["qr_"+network+"_label"]',screen)
+        self.assertIn('caption.textContent=$("qr_"+network+"_label").value.trim()',editor)
+
     def test_social_qr_codes_are_opt_in_and_tenant_scoped(self):
         first=tenant_screens.get_config(self.db,"british-arena")["settings"]
         updated={**first,"facebook_url":"https://www.facebook.com/sociallikes",
