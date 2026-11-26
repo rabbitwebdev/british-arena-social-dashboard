@@ -124,6 +124,44 @@ class CompanyScreenTests(unittest.TestCase):
         self.assertTrue(route(viewer,self.db,"GET"))
         self.assertEqual(viewer.response[0],403)
 
+    def test_font_sizes_default_and_independent_company_publishing(self):
+        arena=tenant_screens.get_config(self.db,"british-arena")["settings"]
+        self.assertEqual(arena["font_sizes"],{})
+        chosen={"heading":130,"subtitle":80,"counts":150,"labels":90,
+                "countdowns":120,"slide_title":105,"slide_text":75,
+                "celebration":110,"footer":70}
+        changed={**arena,"font_sizes":chosen}
+        tenant_screens.save_config(self.db,"british-arena",changed)
+        self.assertEqual(tenant_screens.get_config(self.db,"british-arena",True)
+                         ["settings"]["font_sizes"],{})
+        tenant_screens.publish(self.db,"british-arena")
+        self.assertEqual(tenant_screens.get_config(self.db,"british-arena",True)
+                         ["settings"]["font_sizes"],chosen)
+        self.assertEqual(tenant_screens.get_config(self.db,self.second,True)
+                         ["settings"]["font_sizes"],{})
+        for invalid in ({"heading":0},{"counts":170},{"footer":True},
+                        {"subtitle":89.9},{"not_a_font":120},[],None):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValueError):
+                    tenant_screens.save_config(self.db,"british-arena",
+                                               {**arena,"font_sizes":invalid})
+
+    def test_tv_autofit_and_all_text_sections_have_size_controls(self):
+        from pathlib import Path
+        root=Path(__file__).resolve().parents[1]
+        screen=(root/"company-screen.html").read_text()
+        dashboard=(root/"company-dashboard.html").read_text()
+        for name in ("heading","subtitle","counts","labels","countdowns",
+                     "slide_title","slide_text","celebration","footer"):
+            self.assertIn(name,screen)
+            self.assertIn(name,dashboard)
+        self.assertIn("function fitStage()",screen)
+        self.assertIn("stage.scrollHeight",screen)
+        self.assertIn("stage.scrollWidth",screen)
+        self.assertIn('window.addEventListener("resize"',screen)
+        self.assertIn("function fitMilestoneText()",screen)
+        self.assertIn("100dvh",screen)
+
     def test_distinct_company_settings_and_publishing(self):
         arena=tenant_screens.get_config(self.db,"british-arena")
         second=tenant_screens.get_config(self.db,self.second)
