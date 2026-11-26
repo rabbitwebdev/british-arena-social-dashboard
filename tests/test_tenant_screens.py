@@ -146,6 +146,15 @@ class CompanyScreenTests(unittest.TestCase):
                     tenant_screens.save_config(self.db,"british-arena",
                                                {**arena,"font_sizes":invalid})
 
+    def test_editor_dom_helper_is_hoisted_before_font_controls_bind(self):
+        # The reset-fonts handler executes at script initialization. A lexical
+        # const $ declared afterwards causes a ReferenceError in Firefox.
+        from pathlib import Path
+        editor=(Path(__file__).resolve().parents[1]/"company-dashboard.html").read_text()
+        self.assertIn("function $(id){return document.getElementById(id)}",editor)
+        self.assertNotIn("const $=id=>document.getElementById(id)",editor)
+        self.assertIn('$("reset-fonts").onclick',editor)
+
     def test_tv_autofit_and_all_text_sections_have_size_controls(self):
         from pathlib import Path
         root=Path(__file__).resolve().parents[1]
