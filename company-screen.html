@@ -2,39 +2,44 @@
 <title>Social Wall TV</title><style>
 :root{--bg:#0B1F55;--accent:#f04438}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden}
+[hidden]{display:none!important}
+#stage,#stage *{min-width:0;overflow-wrap:anywhere}
 body{background:var(--bg);color:white;font:clamp(15px,1.7vw,30px)/1.45 system-ui,sans-serif}
-#stage{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;text-align:center;padding:3vw 5vw;gap:2vw}
-#logo{max-height:15vh;max-width:40vw;object-fit:contain}
-h1{font-size:clamp(42px,5vw,100px);line-height:1.05;margin:0;font-weight:900}
-h2{font-size:clamp(18px,2vw,40px);margin:0;font-weight:500}
-#socialArea{width:100%;display:flex;align-items:center;justify-content:center;gap:3vw;flex-direction:column}
+#stage{width:100%;min-height:100dvh;height:auto;display:flex;flex-direction:column;
+ align-items:center;justify-content:space-between;text-align:center;
+ padding:clamp(12px,2.5vh,40px) clamp(14px,4vw,88px);
+ gap:clamp(8px,1.3vh,24px);transform-origin:top center;will-change:transform}
+#logo{max-height:12vh;max-width:40vw;object-fit:contain}
+h1{font-size:clamp(22px,var(--heading-size,5vw),155px);line-height:1.05;margin:0;font-weight:900}
+h2{font-size:clamp(13px,var(--subtitle-size,2vw),70px);margin:0;font-weight:500}
+#socialArea{width:100%;display:flex;align-items:center;justify-content:center;gap:clamp(8px,1.2vw,28px);flex-direction:column}
 #socialArea.side{flex-direction:row;justify-content:space-evenly}
 #socialArea.side #stats{flex:1;gap:3vw}
-#stats{display:flex;justify-content:center;gap:6vw;flex-wrap:wrap}
+#stats{display:flex;justify-content:center;gap:clamp(15px,3vw,65px);flex-wrap:wrap;max-width:100%}
 #stats[hidden]{display:none}
-#target-countdowns{width:100%;display:flex;flex-wrap:wrap;justify-content:center;gap:12px}
+#target-countdowns{width:100%;display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
 #target-countdowns[hidden]{display:none}
 .target-countdown{max-width:95%;border:2px solid var(--accent);background:rgba(0,0,0,.22);
  padding:12px 26px;text-align:center}
-.target-countdown strong{display:block;font-size:clamp(23px,2.8vw,54px);line-height:1.2}
-.target-countdown small{font-size:clamp(12px,1.15vw,22px);opacity:.85}
-#qr-codes{display:flex;align-items:center;justify-content:center;gap:2vw}
+.target-countdown strong{display:block;font-size:clamp(16px,var(--countdown-size,2.8vw),82px);line-height:1.2}
+.target-countdown small{font-size:clamp(11px,var(--label-size,1.15vw),38px);opacity:.85}
+#qr-codes{display:flex;align-items:center;justify-content:center;gap:clamp(6px,1vw,20px);flex-wrap:wrap;max-width:100%}
 .qr-card{display:flex;flex-direction:column;align-items:center;gap:8px}
 .qr-card[hidden],#stats section[hidden]{display:none}
-.qr-card img{width:var(--qr-size,180px);height:var(--qr-size,180px);max-width:25vw;max-height:28vh;object-fit:contain;background:#fff;border:8px solid white}
-.qr-card span{font-size:clamp(14px,1.4vw,24px);font-weight:750}
+.qr-card img{width:var(--qr-size,180px);height:var(--qr-size,180px);max-width:25vw;max-height:20vh;object-fit:contain;background:#fff;border:6px solid white}
+.qr-card span{font-size:clamp(12px,var(--label-size,1.4vw),40px);font-weight:750}
 #qr-codes[hidden]{display:none}
 @media(max-width:950px){#socialArea.side{flex-direction:column}#qr-codes{gap:1vw}}
-.count{font-size:clamp(56px,9vw,170px);line-height:1;font-weight:900}
-.metric{font-size:clamp(17px,1.7vw,32px);font-weight:700;margin-top:12px}
+.count{font-size:clamp(30px,var(--count-size,9vw),260px);line-height:1;font-weight:900}
+.metric{font-size:clamp(12px,var(--label-size,1.7vw),55px);font-weight:700;margin-top:8px}
 .metric b{color:var(--accent)}
-#slides{width:100%;min-height:28vh;display:flex;align-items:center;justify-content:center}
-#slideTitle{font-weight:900;font-size:clamp(30px,3.5vw,70px);margin:0}
-#slideDesc{font-size:clamp(18px,1.7vw,35px)}
-#slideImg{object-fit:contain;max-height:30vh;max-width:45vw}
-#slideContent{display:flex;gap:4vw;align-items:center;justify-content:center}
-#footer{font-size:clamp(13px,1.2vw,22px);opacity:.85}
-#celebration{position:fixed;inset:20% 5% auto;text-align:center;font-size:clamp(28px,5vw,95px);font-weight:900;color:white;text-shadow:0 4px 35px var(--accent);z-index:3;pointer-events:none}
+#slides{width:100%;min-height:0;display:flex;align-items:center;justify-content:center}
+#slideTitle{font-weight:900;font-size:clamp(18px,var(--slide-title-size,3.5vw),110px);margin:0}
+#slideDesc{font-size:clamp(13px,var(--slide-text-size,1.7vw),60px);white-space:pre-wrap}
+#slideImg{object-fit:contain;max-height:22vh;max-width:42vw}
+#slideContent{display:flex;gap:clamp(12px,2vw,35px);align-items:center;justify-content:center;flex-wrap:wrap;max-width:100%}
+#footer{font-size:clamp(11px,var(--footer-size,1.2vw),45px);opacity:.85;max-width:100%}
+#celebration{position:fixed;inset:20% 5% auto;text-align:center;font-size:clamp(18px,var(--celebration-size,5vw),155px);font-weight:900;color:white;text-shadow:0 4px 35px var(--accent);z-index:3;pointer-events:none;overflow-wrap:anywhere}
 #celebration.active{animation:appear 2.5s ease forwards}
 @keyframes appear{0%{opacity:0;transform:translateY(30px) scale(.8)}
 20%{opacity:1;transform:translateY(0) scale(1.1)}
@@ -44,9 +49,9 @@ h2{font-size:clamp(18px,2vw,40px);margin:0;font-weight:500}
  flex-direction:column;align-items:center;justify-content:center;gap:3vh;
  text-align:center;padding:5vw;pointer-events:none;opacity:0;visibility:hidden}
 #milestone.show{opacity:1;visibility:visible;animation:milestone-in .5s ease-out}
-#milestone-symbol{font-size:clamp(75px,13vw,210px);line-height:1;animation:milestone-bounce 1s ease-in-out infinite alternate}
-#milestone-message{font-size:clamp(32px,5vw,86px);max-width:90vw;font-weight:900;line-height:1.15;white-space:pre-wrap;overflow-wrap:anywhere}
-#milestone-label{color:#eee;font-size:clamp(19px,2.1vw,37px)}
+#milestone-symbol{font-size:min(13vw,20vh,180px);line-height:1;animation:milestone-bounce 1s ease-in-out infinite alternate}
+#milestone-message{font-size:clamp(18px,var(--celebration-size,5vw),155px);max-width:90vw;max-height:56dvh;overflow:hidden;font-weight:900;line-height:1.15;white-space:pre-wrap;overflow-wrap:anywhere}
+#milestone-label{color:#eee;font-size:clamp(13px,var(--label-size,2.1vw),60px)}
 @keyframes milestone-in{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
 @keyframes milestone-bounce{to{transform:translateY(-18px) rotate(5deg)}}
 #milestone.fireworks{background:radial-gradient(circle at center,#4b2579,#070f33 85%)}
@@ -82,6 +87,46 @@ const endpoint=previewMode?"/api/organisations/"+encodeURIComponent(key)+"/scree
 const $=id=>document.getElementById(id);
 let version=null,previous=null,settings=null,slideIndex=0,nextSlideAt=0,initialized=false;
 let knownMilestoneEvents={},milestonesReady=false,milestoneTimer=null;
+const FONT_BASE={heading:5,subtitle:2,counts:9,labels:1.7,countdowns:2.8,
+ slide_title:3.5,slide_text:1.7,celebration:5,footer:1.2};
+const FONT_CSS={heading:"heading-size",subtitle:"subtitle-size",counts:"count-size",
+ labels:"label-size",countdowns:"countdown-size",slide_title:"slide-title-size",
+ slide_text:"slide-text-size",celebration:"celebration-size",footer:"footer-size"};
+function updateFontSizes(){
+ const configured=settings?.font_sizes||{};
+ for(const [name,base] of Object.entries(FONT_BASE)){
+  const percent=Number.isInteger(configured[name])?Math.max(60,Math.min(160,configured[name])):100;
+  document.documentElement.style.setProperty("--"+FONT_CSS[name],(base*percent/100).toFixed(3)+"vw");
+ }
+}
+let layoutFrame=0;
+function fitStage(){
+ cancelAnimationFrame(layoutFrame);
+ layoutFrame=requestAnimationFrame(()=>{
+  const stage=$("stage");
+  stage.style.transform="none";
+  const vw=document.documentElement.clientWidth;
+  const vh=window.innerHeight;
+  if(!vw||!vh)return;
+  // Layout all elements at natural size, then shrink the entire canvas if
+  // necessary; unlike clipping, this preserves headlines, counters, QR and slides.
+  const fullHeight=stage.scrollHeight;
+  const fullWidth=stage.scrollWidth;
+  const scale=Math.min(1,vw/Math.max(vw,fullWidth),vh/Math.max(vh,fullHeight));
+  stage.style.transform="scale("+scale.toFixed(5)+")";
+ });
+}
+function fitMilestoneText(){
+ const node=$("milestone-message");
+ node.style.fontSize="";
+ const original=parseFloat(getComputedStyle(node).fontSize);
+ if(!Number.isFinite(original))return;
+ let size=original;
+ while(size>14 && node.scrollHeight>node.clientHeight+2){
+  size=Math.max(14,size*.9);node.style.fontSize=size+"px";
+ }
+}
+window.addEventListener("resize",()=>{fitStage();fitMilestoneText()});
 function imageSource(value){
  if(typeof value!=="string")return "";
  if(/^media:[a-f0-9]{32}$/.test(value)){
@@ -91,7 +136,7 @@ function imageSource(value){
 }
 function setImage(element,src){
  const url=imageSource(src);
- if(url){element.src=url;element.hidden=false}
+ if(url){element.src=url;element.hidden=false;element.onload=fitStage}
  else{element.removeAttribute("src");element.hidden=true}
 }
 function showSlide(){
@@ -103,6 +148,7 @@ function showSlide(){
  $("slideDesc").textContent=slide.description||"";
  setImage($("slideImg"),slide.image);
  nextSlideAt=Date.now()+(slide.duration||settings.rotation_seconds||12)*1000;
+ fitStage();
  slideIndex=(slideIndex+1)%slides.length;
 }
 function updateMetricVisibility(){
@@ -163,6 +209,7 @@ function showMilestone(channel,item){
  $("milestone-symbol").textContent=symbols[item.animation]||"🎉";
  $("milestone-message").textContent=item.message||"Target reached!";
  $("milestone-label").textContent=label+" · "+Number(item.goal).toLocaleString()+" reached!";
+ fitMilestoneText();
  milestoneTimer=setTimeout(()=>{container.className="";milestoneTimer=null},8000);
 }
 function updateCountdowns(milestones,social){
@@ -210,6 +257,7 @@ async function refresh(){
    $("subtitle").textContent=settings.subtitle||"";
    $("footer").textContent=settings.newsletter_url?"Join our newsletter · "+settings.newsletter_url:"Follow us for more updates";
    setImage($("logo"),settings.logo);
+   updateFontSizes();
    updateSocialQr();
    updateMetricVisibility();
    slideIndex=0;showSlide();
@@ -228,6 +276,7 @@ async function refresh(){
    if(!$("metric-instagram-followers").hidden&&ig!=null&&previous.instagram!=null&&ig>previous.instagram)celebrate("Instagram",ig-previous.instagram);
  }
  previous=social;initialized=true;
+ fitStage();
  $("status").textContent=social.status==="needs_attention"?"Social connection needs attention":"";
  }catch(e){$("status").textContent="Connection interrupted; retrying automatically"}
 }
