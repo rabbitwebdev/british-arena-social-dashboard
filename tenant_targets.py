@@ -147,29 +147,58 @@ def after_publish(db_path,org,config):
             counts=dict(zip(METRICS,row[:3])) if row and row[3]=="connected" else {}
             _align(db,org,goals,counts)
 
+def _advance_due(db,org,metric,config,now,counts):
+    steps=stages(config)
+    row=db.execute("""SELECT active_index,state,reached_at FROM company_target_states
+                      WHERE org_id=? AND metric=?""",(org,metric)).fetchone()
+    if not row:return
+    index,state,reached_at=row
+    if state!="reached" or reached_at is None or now<reached_at+steps[index]["display_duration"]:
+        return
+    next_index=index+1
+    if next_index==len(steps):
+        db.execute("""UPDATE company_target_states SET active_index=?,state='complete',
+                  event_id=NULL,reached_at=NULL WHERE org_id=? AND metric=?""",
+                   (next_index,org,metric))
+    else:
+        goal=steps[next_index]["goal"]
+        # The new goal becomes armed after the last image/animation duration.
+        # Only the next successful Meta sample may fire it.
+        state="armed" if counts.get(metric) is not None else "waiting"
+        db.execute("""UPDATE company_target_states SET active_index=?,goal=?,state=?,
+                  event_id=NULL,reached_at=NULL WHERE org_id=? AND metric=?""",
+                   (next_index,goal,state,org,metric))
+
+
 def after_sync(db_path,org,counts):
-    """Call only after a successful fresh Graph API sample."""
+    """Process a fresh Graph sample; never trigger the next goal during the prior display."""
     with closing(db_open(db_path)) as db:
         with db:
             config_row=db.execute("SELECT published FROM company_screen_config WHERE org_id=?",
                                   (org,)).fetchone()
             if not config_row:return
             goals=_goals(json.loads(config_row[0]))
+            now=int(time.time())
             _align(db,org,goals,counts)
-            for metric,goal in goals.items():
+            for metric,config in goals.items():
+                _advance_due(db,org,metric,config,now,counts)
                 value=counts.get(metric)
                 if value is None:continue
-                row=db.execute("SELECT state FROM company_target_states WHERE org_id=? AND metric=?",
-                               (org,metric)).fetchone()
+                row=db.execute("""SELECT state,active_index FROM company_target_states
+                                  WHERE org_id=? AND metric=?""",(org,metric)).fetchone()
                 if not row:continue
-                if row[0]=="waiting":
+                state,index=row
+                if state=="complete":continue
+                current=stages(config)[index]
+                if state=="waiting":
                     db.execute("UPDATE company_target_states SET state=? WHERE org_id=? AND metric=?",
-                               ("reached" if value>=goal["goal"] else "armed",org,metric))
-                elif row[0]=="armed" and value>=goal["goal"]:
+                               ("reached" if value>=current["goal"] else "armed",org,metric))
+                elif state=="armed" and value>=current["goal"]:
                     db.execute("""UPDATE company_target_states SET
-                         state='reached',event_id=?,reached_at=?
-                         WHERE org_id=? AND metric=? AND state='armed'""",
-                         (secrets.token_hex(16),int(time.time()),org,metric))
+                           state='reached',event_id=?,reached_at=?
+                           WHERE org_id=? AND metric=? AND state='armed'""",
+                           (secrets.token_hex(16),now,org,metric))
+
 
 def events(db_path,org,config):
     goals=_goals(config)
