@@ -363,7 +363,7 @@ class MilestoneTests(unittest.TestCase):
         basic={"enabled":True,"goal":1300,"message":"Happy hour","animation":"confetti"}
         plain=tenant_targets.validate({"facebook":basic})["facebook"]
         self.assertFalse(plain["timer_enabled"])
-        self.assertEqual(plain["timer_message"],"Offer ends in {seconds}s")
+        self.assertEqual(plain["timer_message"],"Offer ends in {time}")
         custom=tenant_targets.validate({"facebook":{
             **basic,"timer_enabled":True,"timer_message":"Offer ends in {seconds}s",
             "next_targets":[{**basic,"goal":1400,"timer_enabled":True,
@@ -371,7 +371,12 @@ class MilestoneTests(unittest.TestCase):
         steps=tenant_targets.stages(custom["facebook"])
         self.assertEqual([t["timer_enabled"] for t in steps],[True,True])
         self.assertEqual(steps[1]["timer_message"],"Deal expires in {seconds} seconds")
+        minute_second=tenant_targets.validate({"instagram":{
+            **basic,"timer_enabled":True,"timer_message":"Offer ends in {time}"}})["instagram"]
+        self.assertEqual(minute_second["timer_message"],"Offer ends in {time}")
         for invalid in (
+            {**basic,"timer_enabled":True,"timer_message":"{time} then {seconds}"},
+            {**basic,"timer_enabled":True,"timer_message":"{time} {time}"},
             {**basic,"timer_enabled":True,"timer_message":"Ends shortly"},
             {**basic,"timer_enabled":True,"timer_message":"{seconds} {seconds}"},
             {**basic,"timer_enabled":True,"timer_message":""},
