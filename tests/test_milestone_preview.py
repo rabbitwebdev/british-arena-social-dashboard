@@ -79,6 +79,23 @@ class MilestonePreviewTests(unittest.TestCase):
         self.assertIn("with-image",screen)
         self.assertIn('previewFrame.src="/company/"+encodeURIComponent(org)+"/preview"',editor)
 
+    def test_image_only_preview_hides_all_overlays_and_keeps_custom_duration(self):
+        from pathlib import Path
+        root=Path(__file__).resolve().parents[1]
+        editor=(root/"company-dashboard.html").read_text()
+        screen=(root/"company-screen.html").read_text()
+        self.assertIn('["image_only","🖼️ Image only (full screen)"]',editor)
+        self.assertIn("Upload a 16:9 image before previewing Image only.",editor)
+        self.assertIn("#milestone.image-only #milestone-symbol",screen)
+        self.assertIn("#milestone.image-only #milestone-message",screen)
+        self.assertIn("#milestone.image-only #milestone-label",screen)
+        self.assertIn("width:100vw;height:100dvh",screen)
+        self.assertIn("object-fit:cover",screen)
+        self.assertIn("animation:none",screen)
+        self.assertIn('item.animation==="image_only"',screen)
+        self.assertIn('item.animation!=="image_only"',screen)
+        self.assertIn("seconds*1000",screen)
+
     def test_editor_contains_preview_and_replay_ui(self):
         from pathlib import Path
         root=Path(__file__).resolve().parents[1]
