@@ -65,6 +65,13 @@ h2{font-size:clamp(13px,var(--subtitle-size,2vw),70px);margin:0;font-weight:500}
  object-fit:cover;object-position:center}
 #milestone-message{font-size:clamp(18px,var(--celebration-size,5vw),155px);max-width:90vw;max-height:56dvh;overflow:hidden;font-weight:900;line-height:1.15;white-space:pre-wrap;overflow-wrap:anywhere}
 #milestone-label{color:#eee;font-size:clamp(13px,var(--label-size,2.1vw),60px)}
+#celebration-timer{position:absolute;bottom:clamp(16px,5vh,64px);left:50%;transform:translateX(-50%);
+  z-index:2;max-width:92vw;min-width:min(280px,70vw);padding:clamp(9px,1.5vw,22px) clamp(16px,2.5vw,40px);
+  background:rgba(4,14,42,.82);border:2px solid var(--accent);color:white;
+  font-size:clamp(18px,2.4vw,46px);line-height:1.15;font-weight:900;text-align:center;
+  overflow-wrap:anywhere;text-shadow:0 2px 8px rgba(0,0,0,.6);font-variant-numeric:tabular-nums}
+#celebration-timer[hidden]{display:none!important}
+#milestone.image-only #celebration-timer{display:block}
 @keyframes milestone-in{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
 @keyframes milestone-bounce{to{transform:translateY(-18px) rotate(5deg)}}
 #milestone.fireworks{background:radial-gradient(circle at center,#4b2579,#070f33 85%)}
@@ -92,6 +99,7 @@ h2{font-size:clamp(13px,var(--subtitle-size,2vw),70px);margin:0;font-weight:500}
  <img id="milestone-image" alt="Target reached promotion" hidden>
  <div id="milestone-message"></div>
  <div id="milestone-label"></div>
+ <div id="celebration-timer" role="timer" aria-label="Time remaining on celebration" hidden></div>
 </div>
 <script>
 "use strict";
@@ -101,6 +109,7 @@ const endpoint=previewMode?"/api/organisations/"+encodeURIComponent(key)+"/scree
 const $=id=>document.getElementById(id);
 let version=null,previous=null,settings=null,slideIndex=0,nextSlideAt=0,initialized=false;
 let knownMilestoneEvents={},milestonesReady=false,milestoneTimer=null;
+let celebrationTicker=null,celebrationEndsAt=0;
 const FONT_BASE={heading:5,subtitle:2,counts:9,labels:1.7,countdowns:2.8,
  slide_title:3.5,slide_text:1.7,celebration:5,footer:1.2};
 const FONT_CSS={heading:"heading-size",subtitle:"subtitle-size",counts:"count-size",
@@ -223,8 +232,19 @@ function checkMilestones(events){
   }else if(!id)knownMilestoneEvents[channel]=null;
  }
 }
+function stopCelebrationTimer(){
+ if(celebrationTicker!==null){clearInterval(celebrationTicker);celebrationTicker=null}
+ $("celebration-timer").hidden=true;
+ celebrationEndsAt=0;
+}
+function updateCelebrationTimer(message){
+ const remaining=Math.max(0,Math.ceil((celebrationEndsAt-Date.now())/1000));
+ if(remaining===0){stopCelebrationTimer();return}
+ $("celebration-timer").textContent=message.replace("{seconds}",remaining.toLocaleString());
+}
 function showMilestone(channel,item){
  if(milestoneTimer)clearTimeout(milestoneTimer);
+ stopCelebrationTimer();
  const container=$("milestone");
  const label=channel==="facebook"?"Facebook followers":channel==="instagram"?"Instagram followers":"Facebook Page likes";
  const symbols={celebrate:"✨",confetti:"🎉",football:"⚽",fireworks:"🎆"};
@@ -248,7 +268,16 @@ function showMilestone(channel,item){
    ?Math.max(0,(Number(item.reached_at)+seconds)*1000-Date.now())
    :seconds*1000;
  if(!milliseconds){container.className="";return}
- milestoneTimer=setTimeout(()=>{container.className="";milestoneTimer=null},milliseconds);
+ if(item.timer_enabled===true && typeof item.timer_message==="string" &&
+   item.timer_message.split("{seconds}").length===2){
+   celebrationEndsAt=Date.now()+milliseconds;
+   $("celebration-timer").hidden=false;
+   updateCelebrationTimer(item.timer_message);
+   celebrationTicker=setInterval(()=>updateCelebrationTimer(item.timer_message),250);
+ }
+ milestoneTimer=setTimeout(()=>{
+   container.className="";milestoneTimer=null;stopCelebrationTimer();
+ },milliseconds);
 }
 function updateCountdowns(milestones,social){
  const holder=$("target-countdowns");
@@ -333,6 +362,10 @@ if(previewMode){
       !["celebrate","confetti","football","fireworks","image_only"].includes(item.animation)||
       (item.animation==="image_only"&&!item.celebration_image)||
       (item.celebration_image&& !/^media:[a-f0-9]{32}$/.test(item.celebration_image))||
+      (item.timer_enabled!==undefined&&typeof item.timer_enabled!=="boolean")||
+      (item.timer_message!==undefined&&(typeof item.timer_message!=="string"||
+         item.timer_message.length>160||
+         (item.timer_enabled===true&&item.timer_message.split("{seconds}").length!==2)))||
       (item.display_duration!==undefined&&
        (!Number.isInteger(item.display_duration)||item.display_duration<5||item.display_duration>3600)))return;
    if(payload.type==="social-milestone-preview"){
@@ -344,6 +377,8 @@ if(previewMode){
       item.countdown_message.split("{remaining}").length!==2||
       !Number.isInteger(payload.remaining)||payload.remaining<1||payload.remaining>item.goal)return;
    $("milestone").className="";
+   if(milestoneTimer){clearTimeout(milestoneTimer);milestoneTimer=null}
+   stopCelebrationTimer();
    const fakeCount=item.goal-payload.remaining;
    updateCountdowns({[payload.channel]:{
      goal:item.goal,state:"armed",countdown_enabled:true,
