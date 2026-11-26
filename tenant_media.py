@@ -65,6 +65,22 @@ def exists(db_path,org,identifier):
 
 def validate_settings(db_path,org,settings):
     images=[settings.get("logo","")]+[s.get("image","") for s in settings.get("slides",[])]
+    targets=settings.get("targets") or {}
+    images.extend(t.get("celebration_image","") for t in targets.values())
+    # Celebration art is uploaded 16:9 only, not an externally hosted URL.
+    for target in targets.values():
+        ref=target.get("celebration_image","")
+        if not ref:continue
+        ident=media_id(ref)
+        if not ident:raise ValueError("Upload a 16:9 celebration image")
+        with closing(db_open(db_path)) as db:
+            row=db.execute("SELECT width,height FROM company_media WHERE id=? AND org_id=?",
+                           (ident,org)).fetchone()
+        if not row or not exists(db_path,org,ident):
+            raise ValueError("Celebration image is not in this company's uploads")
+        width,height=row
+        if not height or abs(width/height-16/9)>0.035:
+            raise ValueError("Celebration image must use a 16:9 aspect ratio")
     for ref in images:
         if isinstance(ref,str) and ref.startswith("media:"):
             ident=media_id(ref)
@@ -127,7 +143,8 @@ def referenced_in_published(db_path,org,identifier):
     settings=tenant_screens.get_config(db_path,org,True)["settings"]
     return identifier in [
         media_id(settings.get("logo","")),
-        *[media_id(slide.get("image","")) for slide in settings.get("slides",[])]
+        *[media_id(slide.get("image","")) for slide in settings.get("slides",[])],
+        *[media_id(target.get("celebration_image","")) for target in settings.get("targets",{}).values()]
     ]
 
 def serve(handler,db_path,org,identifier):
