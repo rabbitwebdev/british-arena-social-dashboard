@@ -48,7 +48,7 @@ def _one(settings):
     countdown_enabled=settings.get("countdown_enabled",False)
     countdown_message=settings.get("countdown_message","Only {remaining} more to go!")
     timer_enabled=settings.get("timer_enabled",False)
-    timer_message=settings.get("timer_message","Offer ends in {seconds}s")
+    timer_message=settings.get("timer_message","Offer ends in {time}")
     if type(enabled) is not bool or type(goal) is not int or goal<0 or goal>2_000_000_000:
         raise ValueError("Invalid milestone target")
     if enabled and goal<1:
@@ -67,8 +67,8 @@ def _one(settings):
         raise ValueError("Invalid celebration timer visibility")
     if not isinstance(timer_message,str) or not 1<=len(timer_message.strip())<=160:
         raise ValueError("Celebration timer text must be 1–160 characters")
-    if timer_enabled and timer_message.count("{seconds}")!=1:
-        raise ValueError("Celebration timer text must include {seconds} exactly once")
+    if timer_enabled and (timer_message.count("{seconds}")+timer_message.count("{time}")!=1):
+        raise ValueError("Celebration timer text must include {time} or {seconds} exactly once")
     if type(countdown_enabled) is not bool:
         raise ValueError("Invalid countdown setting")
     if not isinstance(countdown_message,str) or not 1<=len(countdown_message.strip())<=240:
