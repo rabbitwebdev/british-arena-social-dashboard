@@ -62,6 +62,12 @@ code{word-break:break-all;overflow-wrap:anywhere}
 <label for="instagram_url">Instagram profile URL</label><input id="instagram_url" maxlength="500" placeholder="https://instagram.com/">
 <label for="newsletter_url">Newsletter signup URL</label><input id="newsletter_url" maxlength="500" placeholder="https://">
 </section>
+<section class="panel" id="font-panel">
+<h2>TV font sizes</h2>
+<p class="muted">Adjust each text size independently. 100% is the original size; the TV automatically scales down overflowing content to fit.</p>
+<div id="font-controls" class="swatch"></div>
+<button class="secondary" id="reset-fonts" type="button">Reset font sizes</button>
+</section>
 <section class="panel" id="metric-panel">
 <h2>Social counters on TV</h2>
 <p class="muted">Choose which real social media numbers appear. Turning one off hides its counter, but you can still show its QR code separately.</p>
@@ -112,6 +118,24 @@ code{word-break:break-all;overflow-wrap:anywhere}
 const org=decodeURIComponent(location.pathname.split("/")[2]||"");
 const root="/api/organisations/"+encodeURIComponent(org)+"/screen";
 const fields=["title","subtitle","background","accent","animation","rotation_seconds","logo","facebook_url","instagram_url","newsletter_url","qr_position","qr_size"];
+const fontFields=[["heading","Main heading"],["subtitle","Supporting text"],["counts","Follower numbers"],
+ ["labels","Counter labels"],["countdowns","Target countdowns"],["slide_title","Slide headings"],
+ ["slide_text","Slide descriptions"],["celebration","Celebration messages"],["footer","Footer"]];
+function renderFonts(){
+ const holder=$("font-controls");holder.replaceChildren();
+ for(const [key,labelText] of fontFields){
+  const label=document.createElement("label");label.textContent=labelText;
+  const input=document.createElement("input");input.type="number";input.min=60;input.max=160;input.step=5;
+  input.value=current.font_sizes?.[key]??100;input.disabled=!editable;
+  input.setAttribute("aria-label",labelText+" size as percentage");
+  const units=document.createElement("small");units.textContent="% of normal size";
+  input.addEventListener("input",()=>{
+    current.font_sizes={...(current.font_sizes||{}),[key]:input.value?Number(input.value):100};
+  });
+  label.append(input,units);holder.append(label);
+ }
+}
+$("reset-fonts").onclick=()=>{current.font_sizes={};renderFonts();};
 const qrBools=["qr_enabled","qr_facebook","qr_instagram"];
 const metricBools=["show_facebook_followers","show_instagram_followers","show_facebook_likes"];
 const milestoneChannels=[["facebook","Facebook followers"],["instagram","Instagram followers"],["facebook_likes","Facebook Page likes"]];
@@ -343,6 +367,7 @@ function loadSettings(settings){
  current={qr_enabled:false,qr_facebook:true,qr_instagram:false,qr_position:"below",qr_size:180,show_facebook_followers:true,show_instagram_followers:true,show_facebook_likes:false,...settings,slides:settings.slides||[],targets:JSON.parse(JSON.stringify(settings.targets||{}))};
  for(const field of fields)$(field).value=current[field]??"";
  for(const field of [...qrBools,...metricBools])$(field).checked=!!current[field];
+ renderFonts();
  updateLogoPreview();
  drawSlides();
  renderTargets();
@@ -351,6 +376,11 @@ function loadSettings(settings){
 function gather(){
  for(const field of fields)current[field]=["rotation_seconds","qr_size"].includes(field)?Number($(field).value):$(field).value;
  for(const field of [...qrBools,...metricBools])current[field]=$(field).checked;
+ for(const [key,label] of fontFields){
+  const size=current.font_sizes?.[key];
+  if(size!==undefined&&(!Number.isInteger(size)||size<60||size>160))
+    throw Error(label+" font size must be between 60% and 160%.");
+ }
  if(!validImage(current.logo))throw Error("Upload a logo or use an HTTPS image URL.");
  if(!["facebook_url","instagram_url","newsletter_url"].every(k=>validHttp(current[k])))throw Error("Use HTTPS URLs for links.");
  if(current.qr_enabled){
@@ -398,6 +428,8 @@ async function refresh(){
  $("remove-logo").disabled=!editable;
  for(const field of [...qrBools,...metricBools])$(field).disabled=!editable;
  for(const btn of ["save","publish","add-slide"])$(btn).disabled=!editable;
+ $("reset-fonts").disabled=!editable;
+ renderFonts();
  drawSlides();
  renderTargets();
  const published=await api(root+"/published");
