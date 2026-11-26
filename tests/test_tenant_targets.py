@@ -245,6 +245,22 @@ class MilestoneTests(unittest.TestCase):
         self.assertEqual(updated["display_duration"],5)
         self.assertEqual(updated["event_id"],current["event_id"])
 
+    def test_image_only_requires_artwork_when_enabled(self):
+        sample={"enabled":True,"goal":1300,"message":"Stored but hidden",
+                "animation":"image_only","display_duration":3600}
+        with self.assertRaisesRegex(ValueError,"uploaded 16:9 image"):
+            tenant_targets.validate({"facebook":sample})
+        image="media:"+"a"*32
+        accepted=tenant_targets.validate({"facebook":{
+            **sample,"celebration_image":image}})["facebook"]
+        self.assertEqual(accepted["animation"],"image_only")
+        self.assertEqual(accepted["display_duration"],3600)
+        self.assertEqual(accepted["celebration_image"],image)
+        # Unselected target settings remain editable without uploaded art.
+        disabled=tenant_targets.validate({"instagram":{
+            **sample,"enabled":False}})["instagram"]
+        self.assertFalse(disabled["enabled"])
+
     def test_invalid_target_rejected_without_mutating_config(self):
         base=tenant_screens.get_config(self.db,self.org)["settings"]
         bad=[
