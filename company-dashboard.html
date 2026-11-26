@@ -190,6 +190,21 @@ function renderTargets(){
   const durationLabel=document.createElement("label");durationLabel.textContent="Target reached display duration (seconds, 5–3600)";
   const duration=document.createElement("input");duration.type="number";duration.min="5";duration.max="3600";duration.step="1";
   duration.value=value.display_duration??8;durationLabel.append(duration);
+  const timerToggleLabel=document.createElement("label");
+  const timerToggle=document.createElement("input");timerToggle.type="checkbox";
+  timerToggle.checked=value.timer_enabled===true;
+  timerToggle.style.cssText="display:inline;width:auto;margin-right:8px";
+  timerToggleLabel.append(timerToggle,document.createTextNode("Show countdown while celebration is on screen"));
+  const timerTextLabel=document.createElement("label");
+  timerTextLabel.textContent="Celebration countdown text (use {seconds} for the time left)";
+  const timerText=document.createElement("input");timerText.type="text";timerText.maxLength=160;
+  timerText.value=value.timer_message??"Offer ends in {seconds}s";
+  timerTextLabel.append(timerText);
+  const timerExample=document.createElement("p");timerExample.className="muted small";
+  const updateTimerExample=()=>{
+    timerExample.textContent=timerToggle.checked?
+      "Example: "+timerText.value.replace("{seconds}",duration.value||"8"):"Countdown hidden";
+  };
   const imageLabel=document.createElement("label");imageLabel.textContent="Celebration image (optional, 16:9)";
   const imageUpload=document.createElement("input");imageUpload.type="file";
   imageUpload.accept="image/png,image/jpeg,image/webp";
@@ -243,7 +258,8 @@ function renderTargets(){
       : "Countdown is hidden";
   };
   const sync=()=>{
-   for(const el of [goal,msg,anim,duration,imageUpload])el.disabled=!editable||!enable.checked;
+   for(const el of [goal,msg,anim,duration,imageUpload,timerToggle])el.disabled=!editable||!enable.checked;
+   timerText.disabled=!editable||!enable.checked||!timerToggle.checked;
    clearImage.disabled=!editable||!enable.checked;
    countdownToggle.disabled=!editable||!enable.checked;
    countdownText.disabled=!editable||!enable.checked||!countdownToggle.checked;
@@ -251,18 +267,23 @@ function renderTargets(){
     goal:goal.value?Number(goal.value):0,message:msg.value,animation:anim.value,
     celebration_image:imageRef,display_duration:duration.value?Number(duration.value):8,
     countdown_enabled:enable.checked&&countdownToggle.checked,
-    countdown_message:countdownText.value};
+    countdown_message:countdownText.value,
+    timer_enabled:enable.checked&&timerToggle.checked,
+    timer_message:timerText.value};
+   updateTimerExample();
    current.targets={...(current.targets||{}),[name]:{
      ...steps[0],...(steps.length>1?{next_targets:steps.slice(1)}:{})}};
    renderCountdownExample();
   };
-  for(const el of [enable,goal,msg,anim,duration,countdownToggle,countdownText])el.addEventListener("input",sync);
+  for(const el of [enable,goal,msg,anim,duration,timerToggle,timerText,countdownToggle,countdownText])
+    el.addEventListener("input",sync);
   const preview=document.createElement("button");preview.type="button";preview.className="secondary";
   preview.textContent="▶ Preview celebration";
   preview.addEventListener("click",()=>{
     const target={goal:goal.value?Number(goal.value):1,
       message:msg.value||"Target reached!",animation:anim.value,
-      celebration_image:imageRef,display_duration:Number(duration.value)||8};
+      celebration_image:imageRef,display_duration:Number(duration.value)||8,
+      timer_enabled:timerToggle.checked,timer_message:timerText.value};
     if(!Number.isInteger(target.goal)||target.goal<1||target.goal>2000000000){
       status("Enter a valid number to preview "+label,true);return;
     }
@@ -291,6 +312,7 @@ function renderTargets(){
     openMilestonePreview(name,label,target,"social-countdown-preview",remaining);
   });
   block.append(enableLabel,goalLabel,msgLabel,animLabel,imageOnlyHelp,imageLabel,durationLabel,
+    timerToggleLabel,timerTextLabel,timerExample,
     countdownToggleLabel,countdownTextLabel,countdownExample,preview,previewCountdown);
   if(index>0){
    const remove=document.createElement("button");remove.type="button";remove.className="secondary";
@@ -315,7 +337,8 @@ function renderTargets(){
     steps.push({enabled:true,goal:newGoal,
        message:"Target reached! Thank you for following us.",
        animation:"confetti",celebration_image:"",display_duration:8,
-       countdown_enabled:false,countdown_message:"Only {remaining} more to go!"});
+       countdown_enabled:false,countdown_message:"Only {remaining} more to go!",
+       timer_enabled:false,timer_message:"Offer ends in {seconds}s"});
     current.targets={...(current.targets||{}),[name]:{
       ...steps[0],next_targets:steps.slice(1)}};
     renderTargets();
@@ -521,6 +544,10 @@ function gather(){
      throw Error("Upload a 16:9 image for the Image only celebration on "+label);
    if(t?.enabled&&(!Number.isInteger(t.display_duration)||t.display_duration<5||t.display_duration>3600))
      throw Error("Celebration duration must be between 5 and 3600 seconds for "+label);
+   for(const step of [t,...(t?.next_targets||[])]){
+     if(step?.timer_enabled&&step.timer_message?.split("{seconds}").length!==2)
+       throw Error("Use {seconds} exactly once in the celebration timer for "+label);
+   }
    if(t?.countdown_enabled&&(!t.enabled||t.countdown_message?.split("{remaining}").length!==2))
      throw Error("Add {remaining} exactly once to the countdown for "+label);
  }
