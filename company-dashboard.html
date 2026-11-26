@@ -196,14 +196,16 @@ function renderTargets(){
   timerToggle.style.cssText="display:inline;width:auto;margin-right:8px";
   timerToggleLabel.append(timerToggle,document.createTextNode("Show countdown while celebration is on screen"));
   const timerTextLabel=document.createElement("label");
-  timerTextLabel.textContent="Celebration countdown text (use {seconds} for the time left)";
+  timerTextLabel.textContent="Celebration countdown text (use {time} for minutes and seconds)";
   const timerText=document.createElement("input");timerText.type="text";timerText.maxLength=160;
-  timerText.value=value.timer_message??"Offer ends in {seconds}s";
+  timerText.value=value.timer_message==="Offer ends in {seconds}s"?"Offer ends in {time}":(value.timer_message??"Offer ends in {time}");
   timerTextLabel.append(timerText);
   const timerExample=document.createElement("p");timerExample.className="muted small";
   const updateTimerExample=()=>{
+    const durationSeconds=Number(duration.value)||8;
+    const formatted=Math.floor(durationSeconds/60)+"m "+(durationSeconds%60)+"s";
     timerExample.textContent=timerToggle.checked?
-      "Example: "+timerText.value.replace("{seconds}",duration.value||"8"):"Countdown hidden";
+      "Example: "+timerText.value.replace("{time}",formatted).replace("{seconds}",String(durationSeconds)):"Countdown hidden";
   };
   const imageLabel=document.createElement("label");imageLabel.textContent="Celebration image (optional, 16:9)";
   const imageUpload=document.createElement("input");imageUpload.type="file";
@@ -338,7 +340,7 @@ function renderTargets(){
        message:"Target reached! Thank you for following us.",
        animation:"confetti",celebration_image:"",display_duration:8,
        countdown_enabled:false,countdown_message:"Only {remaining} more to go!",
-       timer_enabled:false,timer_message:"Offer ends in {seconds}s"});
+       timer_enabled:false,timer_message:"Offer ends in {time}"});
     current.targets={...(current.targets||{}),[name]:{
       ...steps[0],next_targets:steps.slice(1)}};
     renderTargets();
@@ -545,8 +547,10 @@ function gather(){
    if(t?.enabled&&(!Number.isInteger(t.display_duration)||t.display_duration<5||t.display_duration>3600))
      throw Error("Celebration duration must be between 5 and 3600 seconds for "+label);
    for(const step of [t,...(t?.next_targets||[])]){
-     if(step?.timer_enabled&&step.timer_message?.split("{seconds}").length!==2)
-       throw Error("Use {seconds} exactly once in the celebration timer for "+label);
+     if(step?.timer_enabled&&
+       ((step.timer_message?.split("{time}").length-1||0)+
+        (step.timer_message?.split("{seconds}").length-1||0))!==1)
+       throw Error("Use {time} or {seconds} exactly once in the celebration timer for "+label);
    }
    if(t?.countdown_enabled&&(!t.enabled||t.countdown_message?.split("{remaining}").length!==2))
      throw Error("Add {remaining} exactly once to the countdown for "+label);
