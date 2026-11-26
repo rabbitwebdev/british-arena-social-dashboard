@@ -201,7 +201,14 @@ function updateSocialQr(){
 function checkMilestones(events){
  const active=events||{};
  if(!milestonesReady){
-  for(const [channel,item] of Object.entries(active))knownMilestoneEvents[channel]=item.event_id||null;
+  for(const [channel,item] of Object.entries(active)){
+    knownMilestoneEvents[channel]=item.event_id||null;
+    // Joining a screen during an ongoing one-hour celebration should
+    // display the remaining artwork, not skip or restart the whole hour.
+    if(item.event_id&&item.reached_at&&
+      Date.now()<((item.reached_at+item.display_duration)*1000))
+       showMilestone(channel,item);
+  }
   milestonesReady=true;return;
  }
  for(const [channel,item] of Object.entries(active)){
@@ -233,7 +240,11 @@ function showMilestone(channel,item){
  if(item.animation!=="image_only")fitMilestoneText();
  const seconds=Number.isInteger(item.display_duration)
    ?Math.max(5,Math.min(3600,item.display_duration)):8;
- milestoneTimer=setTimeout(()=>{container.className="";milestoneTimer=null},seconds*1000);
+ const milliseconds=item.reached_at
+   ?Math.max(0,(Number(item.reached_at)+seconds)*1000-Date.now())
+   :seconds*1000;
+ if(!milliseconds){container.className="";return}
+ milestoneTimer=setTimeout(()=>{container.className="";milestoneTimer=null},milliseconds);
 }
 function updateCountdowns(milestones,social){
  const holder=$("target-countdowns");
