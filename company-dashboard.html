@@ -162,6 +162,40 @@ function renderTargets(){
    const opt=document.createElement("option");opt.value=id;opt.textContent=title;anim.append(opt);
   }
   anim.value=value.animation||"confetti";animLabel.append(anim);
+  const durationLabel=document.createElement("label");durationLabel.textContent="Target reached display duration (seconds, 5–3600)";
+  const duration=document.createElement("input");duration.type="number";duration.min="5";duration.max="3600";duration.step="1";
+  duration.value=value.display_duration??8;durationLabel.append(duration);
+  const imageLabel=document.createElement("label");imageLabel.textContent="Celebration image (optional, 16:9)";
+  const imageUpload=document.createElement("input");imageUpload.type="file";
+  imageUpload.accept="image/png,image/jpeg,image/webp";
+  imageUpload.setAttribute("aria-label","Upload 16:9 celebration image for "+label);
+  const imagePreview=document.createElement("img");
+  imagePreview.alt="Celebration artwork preview";
+  imagePreview.style.cssText="display:block;width:100%;max-width:420px;aspect-ratio:16/9;object-fit:contain;background:#e8edf6;margin:8px 0";
+  const clearImage=document.createElement("button");clearImage.type="button";clearImage.className="secondary";
+  clearImage.textContent="Remove celebration image";
+  let imageRef=value.celebration_image||"";
+  const drawImage=()=>{
+   const src=imageSrc(imageRef);
+   imagePreview.hidden=!src;
+   clearImage.hidden=!src;
+   if(src)imagePreview.src=src;else imagePreview.removeAttribute("src");
+  };
+  imageUpload.addEventListener("change",async()=>{
+   const file=imageUpload.files?.[0];if(!file)return;
+   try{
+    const dimensions=await createImageBitmap(file);
+    const ratio=dimensions.width/dimensions.height;
+    dimensions.close();
+    if(!Number.isFinite(ratio)||Math.abs(ratio-16/9)>0.035)
+      throw Error("Please upload a 16:9 image, such as 1920 × 1080.");
+    imageRef=await uploadImage(file);drawImage();sync();
+    status("Celebration image uploaded. Save draft or publish to use it.");
+   }catch(error){status(error.message,true)}
+   finally{imageUpload.value=""}
+  });
+  clearImage.onclick=()=>{imageRef="";drawImage();sync()};
+  imageLabel.append(imageUpload,imagePreview,clearImage);drawImage();
   const countdownToggleLabel=document.createElement("label");
   const countdownToggle=document.createElement("input");
   countdownToggle.type="checkbox";countdownToggle.checked=value.countdown_enabled===true;
@@ -184,21 +218,24 @@ function renderTargets(){
       : "Countdown is hidden";
   };
   const sync=()=>{
-   for(const el of [goal,msg,anim])el.disabled=!editable||!enable.checked;
+   for(const el of [goal,msg,anim,duration,imageUpload])el.disabled=!editable||!enable.checked;
+   clearImage.disabled=!editable||!enable.checked;
    countdownToggle.disabled=!editable||!enable.checked;
    countdownText.disabled=!editable||!enable.checked||!countdownToggle.checked;
    current.targets={...(current.targets||{}),[name]:{enabled:enable.checked,
     goal:goal.value?Number(goal.value):0,message:msg.value,animation:anim.value,
+    celebration_image:imageRef,display_duration:duration.value?Number(duration.value):8,
     countdown_enabled:enable.checked&&countdownToggle.checked,
     countdown_message:countdownText.value}};
    renderCountdownExample();
   };
-  for(const el of [enable,goal,msg,anim,countdownToggle,countdownText])el.addEventListener("input",sync);
+  for(const el of [enable,goal,msg,anim,duration,countdownToggle,countdownText])el.addEventListener("input",sync);
   const preview=document.createElement("button");preview.type="button";preview.className="secondary";
   preview.textContent="▶ Preview celebration";
   preview.addEventListener("click",()=>{
     const target={goal:goal.value?Number(goal.value):1,
-      message:msg.value||"Target reached!",animation:anim.value};
+      message:msg.value||"Target reached!",animation:anim.value,
+      celebration_image:imageRef,display_duration:Number(duration.value)||8};
     if(!Number.isInteger(target.goal)||target.goal<1||target.goal>2000000000){
       status("Enter a valid number to preview "+label,true);return;
     }
@@ -220,7 +257,7 @@ function renderTargets(){
     const remaining=Number.isInteger(live)&&live<target.goal?target.goal-live:Math.min(22,target.goal);
     openMilestonePreview(name,label,target,"social-countdown-preview",remaining);
   });
-  block.append(enableLabel,goalLabel,msgLabel,animLabel,
+  block.append(enableLabel,goalLabel,msgLabel,animLabel,imageLabel,durationLabel,
     countdownToggleLabel,countdownTextLabel,countdownExample,preview,previewCountdown);
   holder.append(block);sync();
  }
@@ -404,6 +441,8 @@ function gather(){
    const t=current.targets?.[name];
    if(t?.enabled&&(!Number.isInteger(t.goal)||t.goal<1))throw Error("Choose a valid target number for "+label);
    if(t?.enabled&&!t.message?.trim())throw Error("Enter a milestone message for "+label);
+   if(t?.enabled&&(!Number.isInteger(t.display_duration)||t.display_duration<5||t.display_duration>3600))
+     throw Error("Celebration duration must be between 5 and 3600 seconds for "+label);
    if(t?.countdown_enabled&&(!t.enabled||t.countdown_message?.split("{remaining}").length!==2))
      throw Error("Add {remaining} exactly once to the countdown for "+label);
  }
