@@ -36,7 +36,8 @@ def init(path):
 def _one(settings):
     if not isinstance(settings,dict) or set(settings)-{
         "enabled","goal","message","animation","countdown_enabled",
-        "countdown_message","celebration_image","display_duration"}:
+        "countdown_message","celebration_image","display_duration",
+        "timer_enabled","timer_message"}:
         raise ValueError("Invalid milestone settings")
     enabled=settings.get("enabled",False)
     goal=settings.get("goal",0)
@@ -46,6 +47,8 @@ def _one(settings):
     display_duration=settings.get("display_duration",8)
     countdown_enabled=settings.get("countdown_enabled",False)
     countdown_message=settings.get("countdown_message","Only {remaining} more to go!")
+    timer_enabled=settings.get("timer_enabled",False)
+    timer_message=settings.get("timer_message","Offer ends in {seconds}s")
     if type(enabled) is not bool or type(goal) is not int or goal<0 or goal>2_000_000_000:
         raise ValueError("Invalid milestone target")
     if enabled and goal<1:
@@ -60,6 +63,12 @@ def _one(settings):
         raise ValueError("Celebration image must be a company-uploaded image")
     if enabled and animation=="image_only" and not celebration_image:
         raise ValueError("Image only celebrations require an uploaded 16:9 image")
+    if type(timer_enabled) is not bool:
+        raise ValueError("Invalid celebration timer visibility")
+    if not isinstance(timer_message,str) or not 1<=len(timer_message.strip())<=160:
+        raise ValueError("Celebration timer text must be 1–160 characters")
+    if timer_enabled and timer_message.count("{seconds}")!=1:
+        raise ValueError("Celebration timer text must include {seconds} exactly once")
     if type(countdown_enabled) is not bool:
         raise ValueError("Invalid countdown setting")
     if not isinstance(countdown_message,str) or not 1<=len(countdown_message.strip())<=240:
@@ -68,7 +77,8 @@ def _one(settings):
         raise ValueError("Enable a milestone and include {remaining} once in its countdown text")
     return {"enabled":enabled,"goal":goal,"message":message.strip(),"animation":animation,
             "countdown_enabled":countdown_enabled,"countdown_message":countdown_message.strip(),
-            "celebration_image":celebration_image,"display_duration":display_duration}
+            "celebration_image":celebration_image,"display_duration":display_duration,
+            "timer_enabled":timer_enabled,"timer_message":timer_message.strip()}
 
 
 def validate(data):
@@ -242,5 +252,7 @@ def events(db_path,org,config):
                         "display_duration":item["display_duration"],
                         "countdown_enabled":item["countdown_enabled"],
                         "countdown_message":item["countdown_message"],
+                        "timer_enabled":item["timer_enabled"],
+                        "timer_message":item["timer_message"],
                         "active_index":index,"total_targets":len(steps)}
     return result
