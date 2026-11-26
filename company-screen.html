@@ -56,6 +56,13 @@ h2{font-size:clamp(13px,var(--subtitle-size,2vw),70px);margin:0;font-weight:500}
 #milestone.with-image #milestone-message{max-height:27dvh;overflow:hidden}
 #milestone.with-image #milestone-label{font-size:min(2vw,5vh)}
 #milestone-image[hidden]{display:none!important}
+#milestone.image-only{padding:0;gap:0;background:#000;animation:none;transform:none}
+#milestone.image-only #milestone-symbol,
+#milestone.image-only #milestone-message,
+#milestone.image-only #milestone-label{display:none!important}
+#milestone.image-only #milestone-image{display:block;position:absolute;inset:0;
+ width:100vw;height:100dvh;max-width:none;max-height:none;aspect-ratio:auto;
+ object-fit:cover;object-position:center}
 #milestone-message{font-size:clamp(18px,var(--celebration-size,5vw),155px);max-width:90vw;max-height:56dvh;overflow:hidden;font-weight:900;line-height:1.15;white-space:pre-wrap;overflow-wrap:anywhere}
 #milestone-label{color:#eee;font-size:clamp(13px,var(--label-size,2.1vw),60px)}
 @keyframes milestone-in{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
@@ -213,7 +220,8 @@ function showMilestone(channel,item){
  container.className="";
  container.classList.add("show");
  if(item.animation==="football"||item.animation==="fireworks")container.classList.add(item.animation);
- if(item.celebration_image)container.classList.add("with-image");
+ if(item.animation==="image_only")container.classList.add("image-only");
+ else if(item.celebration_image)container.classList.add("with-image");
  $("milestone-symbol").textContent=symbols[item.animation]||"🎉";
  const artwork=$("milestone-image");
  const src=imageSource(item.celebration_image||"");
@@ -222,7 +230,7 @@ function showMilestone(channel,item){
  else artwork.removeAttribute("src");
  $("milestone-message").textContent=item.message||"Target reached!";
  $("milestone-label").textContent=label+" · "+Number(item.goal).toLocaleString()+" reached!";
- fitMilestoneText();
+ if(item.animation!=="image_only")fitMilestoneText();
  const seconds=Number.isInteger(item.display_duration)
    ?Math.max(5,Math.min(3600,item.display_duration)):8;
  milestoneTimer=setTimeout(()=>{container.className="";milestoneTimer=null},seconds*1000);
@@ -307,7 +315,8 @@ if(previewMode){
    const item=payload.target;
    if(!item||!Number.isInteger(item.goal)||item.goal<1||item.goal>2000000000||
       typeof item.message!=="string"||item.message.length>240||
-      !["celebrate","confetti","football","fireworks"].includes(item.animation)||
+      !["celebrate","confetti","football","fireworks","image_only"].includes(item.animation)||
+      (item.animation==="image_only"&&!item.celebration_image)||
       (item.celebration_image&& !/^media:[a-f0-9]{32}$/.test(item.celebration_image))||
       (item.display_duration!==undefined&&
        (!Number.isInteger(item.display_duration)||item.display_duration<5||item.display_duration>3600)))return;
