@@ -4,6 +4,7 @@ A milestone only fires when a published, armed target is crossed during a
 successful poll. Publishing a target already met never manufactures an event.
 """
 import json
+import re
 import secrets
 import sqlite3
 import time
@@ -33,12 +34,14 @@ def validate(data):
         raise ValueError("Invalid milestone settings")
     clean={}
     for metric,settings in data.items():
-        if not isinstance(settings,dict) or set(settings)-{"enabled","goal","message","animation","countdown_enabled","countdown_message"}:
+        if not isinstance(settings,dict) or set(settings)-{"enabled","goal","message","animation","countdown_enabled","countdown_message","celebration_image","display_duration"}:
             raise ValueError("Invalid milestone for "+metric)
         enabled=settings.get("enabled",False)
         goal=settings.get("goal",0)
         message=settings.get("message",DEFAULT_MESSAGE)
         animation=settings.get("animation","confetti")
+        celebration_image=settings.get("celebration_image","")
+        display_duration=settings.get("display_duration",8)
         countdown_enabled=settings.get("countdown_enabled",False)
         countdown_message=settings.get("countdown_message","Only {remaining} more to go!")
         if type(enabled) is not bool or type(goal) is not int or goal<0 or goal>2_000_000_000:
@@ -49,6 +52,10 @@ def validate(data):
             raise ValueError("Milestone text must be 1–240 characters")
         if animation not in ANIMATIONS:
             raise ValueError("Unsupported milestone animation")
+        if type(display_duration) is not int or not 5<=display_duration<=3600:
+            raise ValueError("Target celebration duration must be between 5 and 3600 seconds")
+        if not isinstance(celebration_image,str) or (celebration_image and not re.fullmatch(r"media:[a-f0-9]{32}",celebration_image)):
+            raise ValueError("Celebration image must be a company-uploaded image")
         if type(countdown_enabled) is not bool:
             raise ValueError("Invalid countdown setting")
         if not isinstance(countdown_message,str) or not 1<=len(countdown_message.strip())<=240:
@@ -57,7 +64,9 @@ def validate(data):
             raise ValueError("Enable a milestone and include {remaining} once in its countdown text")
         clean[metric]={"enabled":enabled,"goal":goal,"message":message.strip(),"animation":animation,
                        "countdown_enabled":countdown_enabled,
-                       "countdown_message":countdown_message.strip()}
+                       "countdown_message":countdown_message.strip(),
+                       "celebration_image":celebration_image,
+                       "display_duration":display_duration}
     return clean
 
 def _goals(config):
@@ -128,6 +137,8 @@ def events(db_path,org,config):
         result[metric]={"goal":goal,"state":state,"event_id":event_id,
                         "reached_at":reached_at,"message":goals[metric]["message"],
                         "animation":goals[metric]["animation"],
+                        "celebration_image":goals[metric]["celebration_image"],
+                        "display_duration":goals[metric]["display_duration"],
                         "countdown_enabled":goals[metric]["countdown_enabled"],
                         "countdown_message":goals[metric]["countdown_message"]}
     return result
