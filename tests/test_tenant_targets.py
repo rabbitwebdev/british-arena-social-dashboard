@@ -359,6 +359,46 @@ class MilestoneTests(unittest.TestCase):
             self.assertEqual(fired["display_duration"],60)
             self.assertIsNotNone(fired["event_id"])
 
+    def test_celebration_end_timer_validation_defaults_and_sequences(self):
+        basic={"enabled":True,"goal":1300,"message":"Happy hour","animation":"confetti"}
+        plain=tenant_targets.validate({"facebook":basic})["facebook"]
+        self.assertFalse(plain["timer_enabled"])
+        self.assertEqual(plain["timer_message"],"Offer ends in {seconds}s")
+        custom=tenant_targets.validate({"facebook":{
+            **basic,"timer_enabled":True,"timer_message":"Offer ends in {seconds}s",
+            "next_targets":[{**basic,"goal":1400,"timer_enabled":True,
+                             "timer_message":"Deal expires in {seconds} seconds"}]}})
+        steps=tenant_targets.stages(custom["facebook"])
+        self.assertEqual([t["timer_enabled"] for t in steps],[True,True])
+        self.assertEqual(steps[1]["timer_message"],"Deal expires in {seconds} seconds")
+        for invalid in (
+            {**basic,"timer_enabled":True,"timer_message":"Ends shortly"},
+            {**basic,"timer_enabled":True,"timer_message":"{seconds} {seconds}"},
+            {**basic,"timer_enabled":True,"timer_message":""},
+            {**basic,"timer_enabled":"yes"},
+            {**basic,"timer_message":"A"*161},
+            {**basic,"timer_message":None},
+        ):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValueError):
+                    tenant_targets.validate({"facebook":invalid})
+
+    def test_celebration_timer_reaches_screen_payload_without_rearming(self):
+        root=tenant_screens.get_config(self.db,self.org)["settings"]
+        root["targets"]={"facebook":{
+            "enabled":True,"goal":1300,"message":"Offer","animation":"confetti",
+            "display_duration":30,"timer_enabled":True,
+            "timer_message":"Offer ends in {seconds}s"}}
+        tenant_screens.save_config(self.db,self.org,root)
+        tenant_screens.publish(self.db,self.org)
+        self.poll(fb=1299)
+        self.poll(fb=1300)
+        result=self.events()["facebook"]
+        self.assertTrue(result["timer_enabled"])
+        self.assertEqual(result["timer_message"],"Offer ends in {seconds}s")
+        self.assertEqual(result["display_duration"],30)
+        self.assertIsNotNone(result["event_id"])
+
     def test_invalid_target_rejected_without_mutating_config(self):
         base=tenant_screens.get_config(self.db,self.org)["settings"]
         bad=[
