@@ -96,6 +96,18 @@ class MilestonePreviewTests(unittest.TestCase):
         self.assertIn('item.animation!=="image_only"',screen)
         self.assertIn("seconds*1000",screen)
 
+    def test_multiple_milestone_editor_and_screen_refresh_resume(self):
+        from pathlib import Path
+        root=Path(__file__).resolve().parents[1]
+        editor=(root/"company-dashboard.html").read_text()
+        screen=(root/"company-screen.html").read_text()
+        self.assertIn('const steps=[first,...(Array.isArray(next_targets)?next_targets:[])]',editor)
+        self.assertIn('"+ Add next "+label+" target"',editor)
+        self.assertIn('"Remove milestone "',editor)
+        self.assertIn('next_targets:steps.slice(1)',editor)
+        self.assertIn('if(item.event_id&&item.reached_at&&',screen)
+        self.assertIn('Number(item.reached_at)+seconds',screen)
+
     def test_editor_contains_preview_and_replay_ui(self):
         from pathlib import Path
         root=Path(__file__).resolve().parents[1]
