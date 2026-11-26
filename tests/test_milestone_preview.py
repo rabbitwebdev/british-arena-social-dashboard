@@ -108,6 +108,22 @@ class MilestonePreviewTests(unittest.TestCase):
         self.assertIn('if(item.event_id&&item.reached_at&&',screen)
         self.assertIn('Number(item.reached_at)+seconds',screen)
 
+    def test_celebration_countdown_is_shown_over_image_and_previewed(self):
+        from pathlib import Path
+        root=Path(__file__).resolve().parents[1]
+        editor=(root/"company-dashboard.html").read_text()
+        screen=(root/"company-screen.html").read_text()
+        self.assertIn("Show countdown while celebration is on screen",editor)
+        self.assertIn("timer_enabled:timerToggle.checked",editor)
+        self.assertIn("timer_message:timerText.value",editor)
+        self.assertIn('id="celebration-timer"',screen)
+        self.assertIn("#milestone.image-only #celebration-timer",screen)
+        self.assertIn('Math.ceil((celebrationEndsAt-Date.now())/1000)',screen)
+        self.assertIn('message.replace("{seconds}",remaining.toLocaleString())',screen)
+        self.assertIn('celebrationEndsAt=Date.now()+milliseconds',screen)
+        self.assertIn("clearInterval(celebrationTicker)",screen)
+        self.assertIn("stopCelebrationTimer();",screen)
+
     def test_editor_contains_preview_and_replay_ui(self):
         from pathlib import Path
         root=Path(__file__).resolve().parents[1]
