@@ -161,6 +161,8 @@ class CompanyScreenTests(unittest.TestCase):
         self.assertIn('window.addEventListener("resize"',screen)
         self.assertIn("function fitMilestoneText()",screen)
         self.assertIn("100dvh",screen)
+        self.assertIn("open-layout-preview",dashboard)
+        self.assertIn('"/company/"+encodeURIComponent(org)+"/preview"',dashboard)
 
     def test_distinct_company_settings_and_publishing(self):
         arena=tenant_screens.get_config(self.db,"british-arena")
