@@ -104,24 +104,39 @@ def _goals(config):
     return {key:val for key,val in validate(config.get("targets",{})).items() if val["enabled"]}
 
 def _align(db,org,goals,counts):
-    db.execute("DELETE FROM company_target_states WHERE org_id=? AND metric NOT IN ("+
-               ",".join("?" for _ in goals)+")",(org,*goals)) if goals else db.execute(
-               "DELETE FROM company_target_states WHERE org_id=?",(org,))
+    if goals:
+        db.execute("DELETE FROM company_target_states WHERE org_id=? AND metric NOT IN ("+
+                   ",".join("?" for _ in goals)+")",(org,*goals))
+    else:
+        db.execute("DELETE FROM company_target_states WHERE org_id=?",(org,))
     for metric,config in goals.items():
-        old=db.execute("SELECT goal FROM company_target_states WHERE org_id=? AND metric=?",
-                       (org,metric)).fetchone()
-        if old and old[0]==config["goal"]:
-            continue
+        steps=stages(config)
+        row=db.execute("""SELECT goal,state,active_index FROM company_target_states
+                          WHERE org_id=? AND metric=?""",(org,metric)).fetchone()
         baseline=counts.get(metric)
-        # A newly published target that has already been hit is marked
-        # reached without an event. Unknown counts must first establish a
-        # baseline, not trigger a fabricated celebration.
-        state="waiting" if baseline is None else ("reached" if baseline>=config["goal"] else "armed")
+        initial="waiting" if baseline is None else (
+            "reached" if baseline>=steps[0]["goal"] else "armed")
+        if row:
+            goal,state,index=row
+            if index<len(steps) and steps[index]["goal"]==goal:
+                continue
+            # An appended milestone can resume a previously finished sequence.
+            if state=="complete" and 0<index<len(steps) and steps[index-1]["goal"]==goal:
+                next_goal=steps[index]["goal"]
+                next_state="waiting" if baseline is None else (
+                    "reached" if baseline>=next_goal else "armed")
+                db.execute("""UPDATE company_target_states SET goal=?,state=?,event_id=NULL,
+                              reached_at=NULL WHERE org_id=? AND metric=?""",
+                           (next_goal,next_state,org,metric))
+                continue
+            if state=="complete" and index==len(steps) and steps[-1]["goal"]==goal:
+                continue
         db.execute("""INSERT INTO company_target_states
-            (org_id,metric,goal,state,event_id,reached_at) VALUES (?,?,?,?,NULL,NULL)
-            ON CONFLICT(org_id,metric) DO UPDATE SET
-            goal=excluded.goal,state=excluded.state,event_id=NULL,reached_at=NULL""",
-            (org,metric,config["goal"],state))
+          (org_id,metric,goal,state,event_id,reached_at,active_index)
+          VALUES (?,?,?,?,NULL,NULL,0)
+          ON CONFLICT(org_id,metric) DO UPDATE SET
+          goal=excluded.goal,state=excluded.state,event_id=NULL,reached_at=NULL,active_index=0""",
+          (org,metric,steps[0]["goal"],initial))
 
 def after_publish(db_path,org,config):
     goals=_goals(config)
