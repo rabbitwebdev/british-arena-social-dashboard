@@ -190,6 +190,10 @@ function updateSocialQr(){
    const url=settings?.[network+"_url"];
    const visible=enabled&&settings["qr_"+network]===true&&typeof url==="string"&&url.startsWith("https://");
    card.hidden=!visible;
+   const caption=card.querySelector("span");
+   const showLabel=settings?.["qr_"+network+"_show_label"]!==false;
+   caption.hidden=!showLabel;
+   caption.textContent=settings?.["qr_"+network+"_label"]??("Scan for "+(network==="facebook"?"Facebook":"Instagram"));
    if(visible){
      const img=$("qr-"+network+"-image");
      img.src=(previewMode?"/api/organisations/":"/api/screens/")+encodeURIComponent(key)+(previewMode?"/screen/qr/":"/qr/")+network+"?v="+encodeURIComponent(version);
