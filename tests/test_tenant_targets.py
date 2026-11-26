@@ -205,6 +205,46 @@ class MilestoneTests(unittest.TestCase):
                  "message":"Reached","animation":"confetti"}})
         self.assertFalse(compatible["facebook"]["countdown_enabled"])
 
+    def test_celebration_duration_bounds_and_old_defaults(self):
+        base={"enabled":True,"goal":1300,"message":"Happy hour",
+              "animation":"confetti"}
+        compatible=tenant_targets.validate({"facebook":base})["facebook"]
+        self.assertEqual(compatible["display_duration"],8)
+        self.assertEqual(compatible["celebration_image"],"")
+        for seconds in (5,8,60,3599,3600):
+            with self.subTest(seconds=seconds):
+                chosen=tenant_targets.validate({"instagram":{
+                    **base,"display_duration":seconds}})["instagram"]
+                self.assertEqual(chosen["display_duration"],seconds)
+        for invalid in (0,4,3601,True,1.5,"3600",None):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValueError):
+                    tenant_targets.validate({"facebook":{**base,"display_duration":invalid}})
+        for invalid in (None,"https://example.test/image.jpg","media:fake",123):
+            with self.subTest(image=invalid):
+                with self.assertRaises(ValueError):
+                    tenant_targets.validate({"facebook":{**base,"celebration_image":invalid}})
+
+    def test_image_and_duration_are_published_with_target_without_rearming(self):
+        base=tenant_screens.get_config(self.db,self.org)["settings"]
+        base["targets"]={"facebook":{"enabled":True,"goal":1500,
+                     "message":"Party time","animation":"confetti",
+                     "display_duration":3600}}
+        tenant_screens.save_config(self.db,self.org,base)
+        tenant_screens.publish(self.db,self.org)
+        self.poll(fb=1499)
+        self.poll(fb=1500)
+        current=self.events()["facebook"]
+        self.assertEqual(current["display_duration"],3600)
+        self.assertEqual(current["celebration_image"],"")
+        self.assertTrue(current["event_id"])
+        base["targets"]["facebook"]["display_duration"]=5
+        tenant_screens.save_config(self.db,self.org,base)
+        tenant_screens.publish(self.db,self.org)
+        updated=self.events()["facebook"]
+        self.assertEqual(updated["display_duration"],5)
+        self.assertEqual(updated["event_id"],current["event_id"])
+
     def test_invalid_target_rejected_without_mutating_config(self):
         base=tenant_screens.get_config(self.db,self.org)["settings"]
         bad=[
