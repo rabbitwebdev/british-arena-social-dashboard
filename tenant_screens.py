@@ -16,7 +16,7 @@ import tenant_meta
 import meta_connect
 
 ALLOWED={"title","subtitle","accent","background","logo","facebook_url",
-         "instagram_url","newsletter_url","slides","animation","rotation_seconds","qr_enabled","qr_facebook","qr_instagram","qr_position","qr_size","show_facebook_followers","show_instagram_followers","show_facebook_likes","targets"}
+         "instagram_url","newsletter_url","slides","animation","rotation_seconds","qr_enabled","qr_facebook","qr_instagram","qr_position","qr_size","show_facebook_followers","show_instagram_followers","show_facebook_likes","targets","font_sizes"}
 MAX_CONFIG=100000
 DEFAULT={"title":"My Social Wall","subtitle":"Follow us on social media",
          "accent":"#f04438","background":"#0B1F55","logo":"",
@@ -25,7 +25,7 @@ DEFAULT={"title":"My Social Wall","subtitle":"Follow us on social media",
          "qr_enabled":False,"qr_facebook":True,"qr_instagram":False,
          "qr_position":"below","qr_size":180,
          "show_facebook_followers":True,"show_instagram_followers":True,
-         "show_facebook_likes":False,"targets":{}}
+         "show_facebook_likes":False,"targets":{},"font_sizes":{}}
 ANIMATIONS={"celebrate","football","confetti","none"}
 
 def _db(path):
@@ -96,6 +96,14 @@ def _check_config(config):
             raise ValueError("Add a "+platform.title()+" page URL before enabling its QR code")
     if type(clean["rotation_seconds"]) is not int or not 5<=clean["rotation_seconds"]<=120:
         raise ValueError("Invalid rotation")
+    sizes=clean["font_sizes"]
+    if not isinstance(sizes,dict) or set(sizes)-{
+            "heading","subtitle","counts","labels","countdowns",
+            "slide_title","slide_text","celebration","footer"}:
+        raise ValueError("Invalid font size settings")
+    for key,value in sizes.items():
+        if type(value) is not int or not 60<=value<=160:
+            raise ValueError("Font sizes must be from 60 to 160 percent")
     import tenant_targets
     clean["targets"]=tenant_targets.validate(clean["targets"])
     if not isinstance(clean["slides"],list) or len(clean["slides"])>20:
