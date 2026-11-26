@@ -204,16 +204,27 @@ def events(db_path,org,config):
     goals=_goals(config)
     if not goals:return {}
     with closing(db_open(db_path)) as db:
-        rows=db.execute("""SELECT metric,goal,state,event_id,reached_at
-                       FROM company_target_states WHERE org_id=?""",(org,)).fetchall()
+        with db:
+            sample=db.execute("""SELECT facebook_count,instagram_count,facebook_likes,status
+                     FROM company_social_counts WHERE org_id=?""",(org,)).fetchone()
+            counts=dict(zip(METRICS,sample[:3])) if sample and sample[3]=="connected" else {}
+            _align(db,org,goals,counts)
+            now=int(time.time())
+            for metric,config in goals.items():
+                _advance_due(db,org,metric,config,now,counts)
+            rows=db.execute("""SELECT metric,goal,state,event_id,reached_at,active_index
+                        FROM company_target_states WHERE org_id=?""",(org,)).fetchall()
     result={}
-    for metric,goal,state,event_id,reached_at in rows:
-        if metric not in goals or goal!=goals[metric]["goal"]:continue
+    for metric,goal,state,event_id,reached_at,index in rows:
+        if metric not in goals:continue
+        steps=stages(goals[metric])
+        item=steps[-1] if state=="complete" else steps[index]
         result[metric]={"goal":goal,"state":state,"event_id":event_id,
-                        "reached_at":reached_at,"message":goals[metric]["message"],
-                        "animation":goals[metric]["animation"],
-                        "celebration_image":goals[metric]["celebration_image"],
-                        "display_duration":goals[metric]["display_duration"],
-                        "countdown_enabled":goals[metric]["countdown_enabled"],
-                        "countdown_message":goals[metric]["countdown_message"]}
+                        "reached_at":reached_at,"message":item["message"],
+                        "animation":item["animation"],
+                        "celebration_image":item["celebration_image"],
+                        "display_duration":item["display_duration"],
+                        "countdown_enabled":item["countdown_enabled"],
+                        "countdown_message":item["countdown_message"],
+                        "active_index":index,"total_targets":len(steps)}
     return result
