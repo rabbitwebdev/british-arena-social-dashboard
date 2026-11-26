@@ -171,7 +171,7 @@ function renderTargets(){
   imageUpload.setAttribute("aria-label","Upload 16:9 celebration image for "+label);
   const imagePreview=document.createElement("img");
   imagePreview.alt="Celebration artwork preview";
-  imagePreview.style.cssText="display:block;width:100%;max-width:420px;aspect-ratio:16/9;object-fit:contain;background:#e8edf6;margin:8px 0";
+  imagePreview.style.cssText="width:100%;max-width:420px;aspect-ratio:16/9;object-fit:contain;background:#e8edf6;margin:8px 0";
   const clearImage=document.createElement("button");clearImage.type="button";clearImage.className="secondary";
   clearImage.textContent="Remove celebration image";
   let imageRef=value.celebration_image||"";
@@ -238,6 +238,9 @@ function renderTargets(){
       celebration_image:imageRef,display_duration:Number(duration.value)||8};
     if(!Number.isInteger(target.goal)||target.goal<1||target.goal>2000000000){
       status("Enter a valid number to preview "+label,true);return;
+    }
+    if(!Number.isInteger(target.display_duration)||target.display_duration<5||target.display_duration>3600){
+      status("Celebration duration must be between 5 seconds and 1 hour.",true);return;
     }
     openMilestonePreview(name,label,target);
   });
