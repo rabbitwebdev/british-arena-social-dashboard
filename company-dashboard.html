@@ -83,6 +83,14 @@ code{word-break:break-all;overflow-wrap:anywhere}
 <label><input id="qr_enabled" type="checkbox" style="display:inline;width:auto"> Display social QR codes</label>
 <label><input id="qr_facebook" type="checkbox" style="display:inline;width:auto"> Show Facebook QR code</label>
 <label><input id="qr_instagram" type="checkbox" style="display:inline;width:auto"> Show Instagram QR code</label>
+<div class="swatch">
+ <div><label><input id="qr_facebook_show_label" type="checkbox" style="display:inline;width:auto"> Show Facebook QR text</label>
+ <label for="qr_facebook_label">Facebook QR text</label>
+ <input id="qr_facebook_label" maxlength="100" placeholder="Scan for Facebook"></div>
+ <div><label><input id="qr_instagram_show_label" type="checkbox" style="display:inline;width:auto"> Show Instagram QR text</label>
+ <label for="qr_instagram_label">Instagram QR text</label>
+ <input id="qr_instagram_label" maxlength="100" placeholder="Scan for Instagram"></div>
+</div>
 <label for="qr_position">Placement</label>
 <select id="qr_position"><option value="below">Below follower counts</option><option value="side">Beside follower counts</option></select>
 <label for="qr_size">QR size on TV</label>
@@ -119,7 +127,7 @@ code{word-break:break-all;overflow-wrap:anywhere}
 "use strict";
 const org=decodeURIComponent(location.pathname.split("/")[2]||"");
 const root="/api/organisations/"+encodeURIComponent(org)+"/screen";
-const fields=["title","subtitle","background","accent","animation","rotation_seconds","logo","facebook_url","instagram_url","newsletter_url","qr_position","qr_size"];
+const fields=["title","subtitle","background","accent","animation","rotation_seconds","logo","facebook_url","instagram_url","newsletter_url","qr_position","qr_size","qr_facebook_label","qr_instagram_label"];
 const fontFields=[["heading","Main heading"],["subtitle","Supporting text"],["counts","Follower numbers"],
  ["labels","Counter labels"],["countdowns","Target countdowns"],["slide_title","Slide headings"],
  ["slide_text","Slide descriptions"],["celebration","Celebration messages"],["footer","Footer"]];
@@ -138,7 +146,7 @@ function renderFonts(){
  }
 }
 $("reset-fonts").onclick=()=>{current.font_sizes={};renderFonts();};
-const qrBools=["qr_enabled","qr_facebook","qr_instagram"];
+const qrBools=["qr_enabled","qr_facebook","qr_instagram","qr_facebook_show_label","qr_instagram_show_label"];
 const metricBools=["show_facebook_followers","show_instagram_followers","show_facebook_likes"];
 const milestoneChannels=[["facebook","Facebook followers"],["instagram","Instagram followers"],["facebook_likes","Facebook Page likes"]];
 function renderTargets(){
@@ -404,10 +412,18 @@ function renderQrPreview(){
    img.alt=heading.textContent+" QR code preview";
    img.src=root+"/qr/"+network+"?preview="+Date.now();
    img.onerror=()=>{column.replaceChildren(heading,document.createTextNode("Save draft to preview."))};
-   column.append(heading,img);container.append(column);
+   column.append(heading,img);
+   if($("qr_"+network+"_show_label").checked){
+     const caption=document.createElement("span");
+     caption.textContent=$("qr_"+network+"_label").value.trim();
+     caption.style.cssText="display:block;font-weight:650;overflow-wrap:anywhere;max-width:180px";
+     column.append(caption);
+   }
+   container.append(column);
  }
 }
-for(const field of ["facebook_url","instagram_url",...qrBools])$(field).addEventListener("change",renderQrPreview);
+for(const field of ["facebook_url","instagram_url","qr_facebook_label","qr_instagram_label",...qrBools])
+ $(field).addEventListener("input",renderQrPreview);
 function drawSlides(){
  const div=$("slides");div.replaceChildren();
  current.slides.forEach((s,i)=>{
@@ -456,7 +472,8 @@ function drawSlides(){
  });
 }
 function loadSettings(settings){
- current={qr_enabled:false,qr_facebook:true,qr_instagram:false,qr_position:"below",qr_size:180,show_facebook_followers:true,show_instagram_followers:true,show_facebook_likes:false,...settings,slides:settings.slides||[],targets:JSON.parse(JSON.stringify(settings.targets||{}))};
+ current={qr_enabled:false,qr_facebook:true,qr_instagram:false,qr_facebook_show_label:true,qr_instagram_show_label:true,
+ qr_facebook_label:"Scan for Facebook",qr_instagram_label:"Scan for Instagram",qr_position:"below",qr_size:180,show_facebook_followers:true,show_instagram_followers:true,show_facebook_likes:false,...settings,slides:settings.slides||[],targets:JSON.parse(JSON.stringify(settings.targets||{}))};
  for(const field of fields)$(field).value=current[field]??"";
  for(const field of [...qrBools,...metricBools])$(field).checked=!!current[field];
  renderFonts();
@@ -468,6 +485,12 @@ function loadSettings(settings){
 function gather(){
  for(const field of fields)current[field]=["rotation_seconds","qr_size"].includes(field)?Number($(field).value):$(field).value;
  for(const field of [...qrBools,...metricBools])current[field]=$(field).checked;
+ for(const network of ["facebook","instagram"]){
+   const text=current["qr_"+network+"_label"].trim();
+   if(current["qr_"+network+"_show_label"]&&!text)
+     throw Error("Enter "+network+" QR text or turn off Show QR text.");
+   current["qr_"+network+"_label"]=text;
+ }
  for(const [key,label] of fontFields){
   const size=current.font_sizes?.[key];
   if(size!==undefined&&(!Number.isInteger(size)||size<60||size>160))
