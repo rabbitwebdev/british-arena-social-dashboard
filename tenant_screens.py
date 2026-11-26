@@ -16,7 +16,7 @@ import tenant_meta
 import meta_connect
 
 ALLOWED={"title","subtitle","accent","background","logo","facebook_url",
-         "instagram_url","newsletter_url","slides","animation","rotation_seconds","qr_enabled","qr_facebook","qr_instagram","qr_position","qr_size","show_facebook_followers","show_instagram_followers","show_facebook_likes","targets","font_sizes"}
+         "instagram_url","newsletter_url","slides","animation","rotation_seconds","qr_enabled","qr_facebook","qr_instagram","qr_position","qr_size","show_facebook_followers","show_instagram_followers","show_facebook_likes","targets","font_sizes","qr_facebook_label","qr_instagram_label","qr_facebook_show_label","qr_instagram_show_label"}
 MAX_CONFIG=100000
 DEFAULT={"title":"My Social Wall","subtitle":"Follow us on social media",
          "accent":"#f04438","background":"#0B1F55","logo":"",
@@ -24,6 +24,8 @@ DEFAULT={"title":"My Social Wall","subtitle":"Follow us on social media",
          "slides":[],"animation":"celebrate","rotation_seconds":12,
          "qr_enabled":False,"qr_facebook":True,"qr_instagram":False,
          "qr_position":"below","qr_size":180,
+         "qr_facebook_label":"Scan for Facebook","qr_instagram_label":"Scan for Instagram",
+         "qr_facebook_show_label":True,"qr_instagram_show_label":True,
          "show_facebook_followers":True,"show_instagram_followers":True,
          "show_facebook_likes":False,"targets":{},"font_sizes":{}}
 ANIMATIONS={"celebrate","football","confetti","none"}
@@ -75,9 +77,18 @@ def _check_config(config):
     if clean["animation"] not in ANIMATIONS:
         raise ValueError("Unknown animation")
     for field in ("qr_enabled","qr_facebook","qr_instagram",
-                  "show_facebook_followers","show_instagram_followers","show_facebook_likes"):
+                  "show_facebook_followers","show_instagram_followers","show_facebook_likes",
+                  "qr_facebook_show_label","qr_instagram_show_label"):
         if type(clean[field]) is not bool:
             raise ValueError("Invalid "+field)
+    for network in ("facebook","instagram"):
+        field="qr_"+network+"_label"
+        label=clean[field]
+        if not isinstance(label,str) or len(label)>100:
+            raise ValueError("QR labels must be 100 characters or fewer")
+        clean[field]=label.strip()
+        if clean["qr_"+network+"_show_label"] and not clean[field]:
+            raise ValueError("Enter a "+network.title()+" QR label or hide it")
     if clean["qr_enabled"] and not (clean["qr_facebook"] or clean["qr_instagram"]):
         raise ValueError("Choose at least one social QR code")
     if clean["qr_position"] not in ("below","side"):
