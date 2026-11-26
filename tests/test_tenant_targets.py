@@ -333,6 +333,32 @@ class MilestoneTests(unittest.TestCase):
         tenant_screens.publish(self.db,self.org)
         self.assertEqual(self.events(self.other),{})
 
+    def test_existing_followers_skip_previously_met_first_stage(self):
+        config=tenant_screens.get_config(self.db,self.org)["settings"]
+        config["targets"]={"facebook":{"enabled":True,"goal":1200,
+          "message":"Past goal","animation":"confetti","display_duration":5,
+          "next_targets":[{"enabled":True,"goal":1300,
+             "message":"Future goal","animation":"image_only",
+             "celebration_image":"media:"+"a"*32,"display_duration":60}]}}
+        # Test state engine directly: real media ownership is separately checked.
+        with patch.object(tenant_targets.time,"time",return_value=2000):
+            with sqlite3.connect(self.db) as db:
+                db.execute("""INSERT INTO company_social_counts(org_id,facebook_count,
+                     instagram_count,facebook_likes,status) VALUES (?,?,?,?,?)""",
+                     (self.org,1250,10,10,"connected"))
+                db.execute("UPDATE company_screen_config SET published=? WHERE org_id=?",
+                           (__import__("json").dumps(config),self.org))
+            result=self.events()["facebook"]
+            self.assertEqual((result["goal"],result["active_index"]),(1300,1))
+            self.assertEqual(result["state"],"armed")
+            self.assertIsNone(result["event_id"])
+        with patch.object(tenant_targets.time,"time",return_value=2001):
+            self.poll(fb=1300)
+            fired=self.events()["facebook"]
+            self.assertEqual(fired["animation"],"image_only")
+            self.assertEqual(fired["display_duration"],60)
+            self.assertIsNotNone(fired["event_id"])
+
     def test_invalid_target_rejected_without_mutating_config(self):
         base=tenant_screens.get_config(self.db,self.org)["settings"]
         bad=[
